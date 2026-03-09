@@ -12,7 +12,6 @@ import (
 	"douxiyou.com/enhance/pkg/services"
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
 	"github.com/spf13/viper"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
@@ -37,7 +36,7 @@ type Scope struct {
 
 	etcdKey string
 
-	SubnetCIDR string              `json:"subnetCidr"`
+	SubnetCIDR string              `json:"subnetCidr" default:"255.255.255.0/24"`
 	Options    []*types.DHCPOption `json:"options"`
 	TTL        int64               `json:"ttl"`
 	Default    bool                `json:"default"`
@@ -56,7 +55,7 @@ func (r *Service) NewScope(name string) *Scope {
 	}
 }
 
-func (r *Service) scopeFromViper(raw *mvccpb.KeyValue) (*Scope, error) {
+func (r *Service) scopeFromViper() (*Scope, error) {
 	prefix := viper.GetString("dhcp.scopes")
 	name := strings.TrimPrefix(string(raw.Key), prefix)
 
