@@ -1,38 +1,41 @@
 {
-    "instance": {
-        "identifier": "gravity-server",
-        "ip": "192.168.1.1",
-        "interface": "eth0",
-        "listen": "0.0.0.0"
-    },
-    "etcd": {
-        "prefix": "/enhance",
-        "endpoint": "localhost:2379",
-        "client_port": 2381,
-        "peer_port": 2380,
-        "join_cluster": ""
-    },
-    "dhcp": {
-      "listen": "0.0.0.0:67",
-      "scopes": [
+  "mqtt": {
+    "auto_start": true,
+    "address": "0.0.0.0:1883",
+    "http": "0.0.0.0:9000"
+  },
+  "instance": {
+    "identifier": "gravity-server",
+    "ip": "192.168.1.1",
+    "interface": "eth0",
+    "listen": "0.0.0.0"
+  },
+  "etcd": {
+    "prefix": "/enhance",
+    "endpoint": "localhost:2379",
+    "client_port": 2381,
+    "peer_port": 2380,
+    "join_cluster": ""
+  },
+  "dhcp": {
+    "listen": "0.0.0.0:67",
+    "scope": {
+      "name": "default",
+      "gateway": "192.168.1.1",
+      "subnet_cidr": "255.255.255.0/24",
+      "dns_servers": [
+        "192.168.1.1"
+      ],
+      "ttl": 86400,
+      "range_start": "192.168.1.100",
+      "range_end": "192.168.1.200",
+      "reservations": [
         {
-          "name": "default",
-          "network": "192.168.1.0/24",
-          "gateway": "192.168.1.1",
-          "dns_servers": [
-            "192.168.1.1"
-          ],
-          "ttl": 86400,
-          "range_start": "192.168.1.100",
-          "range_end": "192.168.1.200",
-          "reservations": [
-            {
-              "mac": "00:11:22:33:44:55",
-              "ip": "192.168.1.50",
-              "hostname": "server"
-            }
-          ]
+          "mac": "00:11:22:33:44:55",
+          "ip": "192.168.1.50",
+          "hostname": "server"
         }
       ]
     }
+  }
 }

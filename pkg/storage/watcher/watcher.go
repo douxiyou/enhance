@@ -40,7 +40,7 @@ func New[T any](
 	w := &Watcher[T]{
 		entries:     make(map[string]T),
 		mutex:       sync.RWMutex{},
-		log:         config.Get().Logger().Named("storage.watcher").With(zap.String("prefix", prefix.String())),
+		log:         config.GetGlobalConfig().Logger().Named("storage.watcher").With(zap.String("prefix", prefix.String())),
 		constructor: constructor,
 		prefix:      prefix,
 		client:      client,

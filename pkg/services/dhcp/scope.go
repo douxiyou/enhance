@@ -11,7 +11,6 @@ import (
 	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/services"
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
-	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
@@ -54,9 +53,9 @@ func (r *Service) NewScope(name string) *Scope {
 }
 
 func (s *Service) scopeFromViper() (*Scope, error) {
-	scopeConfig := viper.Get("dhcp.scope").(config.ScopeConfig)
+	scopeConfig := config.GetGlobalConfig().Dhcp.Scope
 	scope := s.NewScope(scopeConfig.Name)
-
+	s.log.Debug("配置文件:::scope config", zap.Any("config", scopeConfig))
 	cidr, err := netip.ParsePrefix(scopeConfig.SubnetCIDR)
 	if err != nil {
 		return nil, err
