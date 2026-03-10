@@ -67,7 +67,7 @@ func (w *Watcher[T]) Start(ctx context.Context) {
 	go w.startWatch(cctx)
 }
 
-func (w *Watcher[T]) Stop() {
+func (w *Watcher[T]) Stop(ctx context.Context) {
 	w.log.Debug("Stopping watcher")
 	if w.watchCancel != nil {
 		w.watchCancel()

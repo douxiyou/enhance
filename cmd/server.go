@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"douxiyou.com/enhance/pkg/instance"
+	"douxiyou.com/enhance/pkg/service_manager"
 	"github.com/spf13/cobra"
 )
 
@@ -19,14 +19,14 @@ var serverCmd = &cobra.Command{
 	Short: "启动路由器增强工具服务器",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("server called")
-		inst := instance.NewInstance()
+		inst := service_manager.NewServiceManager()
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 		go func() {
 			<-sig
-			inst.Stop()
+			inst.StopService(service_manager.DhcpKey)
 		}()
-		inst.Start()
+		inst.StartService(service_manager.DhcpKey)
 	},
 }
 

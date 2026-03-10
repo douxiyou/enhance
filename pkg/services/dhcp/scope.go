@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"strings"
 	"time"
 
+	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/services"
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
 	"github.com/spf13/viper"
@@ -34,8 +34,6 @@ type Scope struct {
 	cidr netip.Prefix
 	Name string `json:"-"`
 
-	etcdKey string
-
 	SubnetCIDR string              `json:"subnetCidr" default:"255.255.255.0/24"`
 	Options    []*types.DHCPOption `json:"options"`
 	TTL        int64               `json:"ttl"`
@@ -55,31 +53,26 @@ func (r *Service) NewScope(name string) *Scope {
 	}
 }
 
-func (r *Service) scopeFromViper() (*Scope, error) {
-	prefix := viper.GetString("dhcp.scopes")
-	name := strings.TrimPrefix(string(raw.Key), prefix)
+func (s *Service) scopeFromViper() (*Scope, error) {
+	scopeConfig := viper.Get("dhcp.scope").(config.ScopeConfig)
+	scope := s.NewScope(scopeConfig.Name)
 
-	s := r.NewScope(name)
-	err := json.Unmarshal(raw.Value, &s)
+	cidr, err := netip.ParsePrefix(scopeConfig.SubnetCIDR)
 	if err != nil {
 		return nil, err
 	}
-	cidr, err := netip.ParsePrefix(s.SubnetCIDR)
-	if err != nil {
-		return nil, err
-	}
-	s.cidr = cidr
+	scope.cidr = cidr
 
-	s.etcdKey = string(raw.Key)
+	// scope.etcdKey = string(scopeConfig.Key)
 
-	previous := r.scope // 之前的scope，用于更新ipam配置
+	previous := s.scope // 之前的scope，用于更新ipam配置
 
-	ipamInst, err := s.ipamType(previous)
+	ipamInst, err := scope.ipamType(previous)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ipam: %w", err)
 	}
-	s.ipam = ipamInst
-	return s, nil
+	scope.ipam = ipamInst
+	return scope, nil
 }
 
 func (s *Scope) ipamType(previous *Scope) (IPAM, error) {

@@ -80,9 +80,9 @@ func (i *InternalIPAM) UpdateConfig(s *Scope) error {
 	return nil
 }
 
-// Return the next free IP in the range defined by `.Start` and `.End`, inclusive.
-// Any returned address is _not_ marked as used, as this is up to the caller of the function
-// Might return `nil` if no more free IP Address is available
+// 返回由 `.Start` 和 `.End` 定义的范围内的下一个可用 IP 地址（包括这两个端点）。
+// 所返回的地址不会被标记为已使用，因为这取决于函数的调用者
+// 如果没有更多可用的 IP 地址，则可能返回 `nil`
 func (i *InternalIPAM) NextFreeAddress(identifier string) *netip.Addr {
 	i.ipf.Lock()
 	defer i.ipf.Unlock()
@@ -165,7 +165,7 @@ func (i *InternalIPAM) IsIPFree(ip netip.Addr, identifier *string) bool {
 func (i *InternalIPAM) GetSubnetMask() net.IPMask {
 	_, cidr, err := net.ParseCIDR(i.SubnetCIDR.String())
 	if err != nil {
-		// This should never happen as the CIDR is validated in the constructor
+		// 这种情况绝不可能发生，因为 CIDR 的验证工作是在构造函数中完成的。
 		panic(err)
 	}
 	return cidr.Mask

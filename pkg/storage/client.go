@@ -20,6 +20,7 @@ type Client struct {
 
 func NewClient(prefix string, logger *zap.Logger, debug bool) *Client {
 	config := clientv3.Config{
+		Endpoints:            []string{"localhost:2379"},
 		DialTimeout:          2 * time.Second,
 		DialKeepAliveTime:    2 * time.Second,
 		DialKeepAliveTimeout: 2 * time.Second,
