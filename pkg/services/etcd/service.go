@@ -65,27 +65,28 @@ func NewEtcdService(i services.Instance) *Service {
 	// 设置 embed 配置
 	cfg.Dir = etcdDir
 	cfg.Name = "etcd_default"
+	cfg.Logger = "zap"
 	cfg.ZapLoggerBuilder = embed.NewZapLoggerBuilder(i.Log())
 	cfg.AutoCompactionMode = "periodic"
 	cfg.AutoCompactionRetention = "60m"
-	clientURL, _ := url.Parse("https://127.0.0.1:2379")
-	peerURL, _ := url.Parse("https://127.0.0.1:2380")
+	clientURL, _ := url.Parse("http://127.0.0.1:2379")
+	peerURL, _ := url.Parse("http://127.0.0.1:2380")
 	cfg.ListenClientUrls = []url.URL{*clientURL}
 	cfg.ListenPeerUrls = []url.URL{*peerURL}
 	cfg.AdvertiseClientUrls = []url.URL{
-		urlMustParse("https://localhost:2379"),
+		urlMustParse("http://localhost:2379"),
 	}
 	cfg.AdvertisePeerUrls = []url.URL{
-		urlMustParse(fmt.Sprintf("https://%s", peerURL.Host)),
+		urlMustParse(fmt.Sprintf("http://%s", peerURL.Host)),
 	}
-	cfg.InitialCluster = fmt.Sprintf("%s=https://%s", cfg.Name, peerURL.Host)
+	cfg.InitialCluster = fmt.Sprintf("%s=http://%s", cfg.Name, peerURL.Host)
 	// cfg.InitialClusterState = "new"
 	cfg.ClusterState = "new"
-	cfg.PeerAutoTLS = true
+	cfg.PeerAutoTLS = false
 	// cfg.PeerTLSInfo.ClientCertFile = path.Join(certDir, "peer", relInstCertPath)
 	// cfg.PeerTLSInfo.ClientKeyFile = path.Join(certDir, "peer", relInstKeyPath)
 	// cfg.PeerTLSInfo.ClientCertAuth = true
-	cfg.SelfSignedCertValidity = 1
+	// cfg.SelfSignedCertValidity = 1
 	cfg.MaxRequestBytes = 10 * 1024 * 1024 // 10 MB
 	return s
 }
@@ -100,8 +101,10 @@ func (s *Service) Start(ctx context.Context) error {
 		err := <-e.Err()
 		if err != nil {
 			s.log.Warn("failed to start/stop etcd", zap.Error(err))
+		} else {
+			s.log.Info("etcd 虽然收到了错误信号，但服没有提供错误信息")
 		}
-		s.e = nil
+		// s.e = nil
 	}()
 	<-e.Server.ReadyNotify()
 	s.log.Info("etcd server is ready", zap.Duration("duration", time.Since(start)))
@@ -109,11 +112,19 @@ func (s *Service) Start(ctx context.Context) error {
 }
 func (s *Service) Stop(ctx context.Context) error {
 	start := time.Now()
-	if s.e != nil {
-		s.e.Server.Stop()
-		s.e.Close()
-		// 等待 etcd 服务完全关闭
-		<-s.e.Err()
+	etcd := s.e
+	if etcd != nil {
+		etcd.Server.Stop()
+		etcd.Close()
+		// 等待 etcd 服务完全关闭，使用 select 防止 channel 已关闭
+		select {
+		case err := <-etcd.Err():
+			if err != nil {
+				s.log.Warn("etcd stop error", zap.Error(err))
+			}
+		case <-time.After(5 * time.Second):
+			s.log.Warn("etcd stop timeout")
+		}
 		s.e = nil
 	}
 	s.log.Info("etcd server is stopped", zap.Duration("duration", time.Since(start)))

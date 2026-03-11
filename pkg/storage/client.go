@@ -31,8 +31,7 @@ func NewClient(prefix string, endpoints []string, logger *zap.Logger, debug bool
 		logger.Fatal("etcd client create failed", zap.Error(err))
 	}
 	cli.KV = namespace.NewKV(cli.KV, prefix)
-	cli.Watcher = namespace.NewWatcher(cli, prefix)
-	cli.Lease = namespace.NewLease(cli.Lease, prefix)
+	cli.Watcher = namespace.NewWatcher(cli.Watcher, prefix)
 	return &Client{
 		Client: cli,
 		log:    logger,

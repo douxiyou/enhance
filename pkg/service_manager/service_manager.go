@@ -78,12 +78,13 @@ func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
 		sm.log.Error("service not found", zap.String("service", string(serviceKey)))
 		return nil
 	}
-	// 调用指定服务的启动方法
-	err := serviceCtx.Service.Start(serviceCtx.ServiceInstance.Context())
-	if err != nil {
-		sm.log.Error("start service failed", zap.Error(err))
-		return err
-	}
+	// 在 goroutine 中启动服务，避免阻塞
+	go func() {
+		err := serviceCtx.Service.Start(serviceCtx.ServiceInstance.Context())
+		if err != nil {
+			sm.log.Error("start service failed", zap.Error(err))
+		}
+	}()
 	return nil
 }
 func (sm *ServiceManager) StopService(serviceKey ServiceKey) error {

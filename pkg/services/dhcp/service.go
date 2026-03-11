@@ -55,6 +55,7 @@ func NewDhcpService(i services.Instance) *Service {
 		func(kv *mvccpb.KeyValue) (*Lease, error) {
 			s, err := s.leaseFromKV(kv)
 			if err != nil {
+				s.log.Error("failed to create lease from kv", zap.Error(err))
 				return nil, err
 			}
 			return s, nil
