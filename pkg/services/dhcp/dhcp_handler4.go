@@ -8,8 +8,8 @@ import (
 	"os"
 	"sync"
 
+	"douxiyou.com/enhance/pkg/config"
 	"github.com/insomniacslk/dhcp/dhcpv4"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/net/ipv4"
 )
@@ -65,7 +65,7 @@ func init() {
 }
 
 func (h *handler4) Handle(buf []byte, oob *ipv4.ControlMessage, peer net.Addr) error {
-	if viper.GetBool("listen_only_mode") {
+	if config.GetGlobalConfig().ListenOnlyMode {
 		return nil
 	}
 	context, canc := context.WithCancel(h.service.ctx)

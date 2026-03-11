@@ -24,20 +24,25 @@ type ScopeDNS struct {
 type Scope struct {
 	ipam IPAM
 	inst services.Instance
-	DNS  *ScopeDNS `json:"dns"`
+	DNS  *ScopeDNS
 
-	IPAM    map[string]string `json:"ipam"`
+	IPAM struct {
+		Type       string
+		RangeStart string
+		RangeEnd   string
+		ShouldPing bool
+	}
 	service *Service
 	log     *zap.Logger
 
 	cidr netip.Prefix
-	Name string `json:"-"`
+	mask net.IPMask
+	Name string
 
-	SubnetCIDR string              `json:"subnetCidr" default:"255.255.255.0/24"`
-	Options    []*types.DHCPOption `json:"options"`
-	TTL        int64               `json:"ttl"`
-	Default    bool                `json:"default"`
-	Prefix     string              `json:"prefix"`
+	Options []*types.DHCPOption `json:"options"`
+	TTL     int64
+	Default bool
+	Prefix  string `json:"prefix"`
 }
 
 func (r *Service) NewScope(name string) *Scope {
@@ -48,25 +53,39 @@ func (r *Service) NewScope(name string) *Scope {
 		TTL:     int64((7 * 24 * time.Hour).Seconds()),
 		log:     r.log.With(zap.String("scope", name)),
 		DNS:     &ScopeDNS{},
-		IPAM:    make(map[string]string),
+		IPAM: struct {
+			Type       string
+			RangeStart string
+			RangeEnd   string
+			ShouldPing bool
+		}{},
+		Default: true,
 	}
 }
 
 func (s *Service) scopeFromViper() (*Scope, error) {
 	scopeConfig := config.GetGlobalConfig().Dhcp.Scope
 	scope := s.NewScope(scopeConfig.Name)
+	scope.mask = net.IPMask(scopeConfig.Mask)
+	scope.IPAM = struct {
+		Type       string
+		RangeStart string
+		RangeEnd   string
+		ShouldPing bool
+	}{
+		Type:       InternalIPAMType,
+		RangeStart: scopeConfig.RangeStart,
+		RangeEnd:   scopeConfig.RangeEnd,
+		ShouldPing: scopeConfig.ShouldPing,
+	}
+	scope.TTL = scopeConfig.TTL
 	s.log.Debug("配置文件:::scope config", zap.Any("config", scopeConfig))
 	cidr, err := netip.ParsePrefix(scopeConfig.SubnetCIDR)
 	if err != nil {
 		return nil, err
 	}
 	scope.cidr = cidr
-
-	// scope.etcdKey = string(scopeConfig.Key)
-
-	previous := s.scope // 之前的scope，用于更新ipam配置
-
-	ipamInst, err := scope.ipamType(previous)
+	ipamInst, err := scope.ipamType()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ipam: %w", err)
 	}
@@ -74,12 +93,8 @@ func (s *Service) scopeFromViper() (*Scope, error) {
 	return scope, nil
 }
 
-func (s *Scope) ipamType(previous *Scope) (IPAM, error) {
-	if previous != nil && s.IPAM["type"] == previous.IPAM["type"] {
-		err := previous.ipam.UpdateConfig(s)
-		return previous.ipam, err
-	}
-	switch s.IPAM["type"] {
+func (s *Scope) ipamType() (IPAM, error) {
+	switch s.IPAM.Type {
 	case InternalIPAMType:
 		fallthrough
 	default:

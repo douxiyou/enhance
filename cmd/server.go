@@ -22,11 +22,12 @@ var serverCmd = &cobra.Command{
 		inst := service_manager.NewServiceManager()
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			<-sig
-			inst.StopService(service_manager.DhcpKey)
-		}()
+		inst.StartService(service_manager.EtcdKey)
 		inst.StartService(service_manager.DhcpKey)
+		<-sig
+		inst.StopService(service_manager.DhcpKey)
+		inst.StopService(service_manager.EtcdKey)
+		os.Exit(0)
 	},
 }
 

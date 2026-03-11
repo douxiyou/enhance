@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
+	"strings"
 	"sync"
 
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
@@ -20,11 +21,10 @@ type InternalIPAM struct {
 	Start netip.Addr
 	End   netip.Addr
 
-	ipf        sync.Mutex
-	log        *zap.Logger
-	service    *Service
-	scope      *Scope
-	SubnetCIDR netip.Prefix
+	ipf     sync.Mutex
+	log     *zap.Logger
+	service *Service
+	scope   *Scope
 
 	shouldPing bool
 	scopeLock  sync.Locker
@@ -46,6 +46,7 @@ func NewInternalIPAM(service *Service, s *Scope) (*InternalIPAM, error) {
 		types.KeyIPAM,
 		s.Name,
 	).String())
+
 	err = ipam.UpdateConfig(s)
 	if err != nil {
 		return nil, err
@@ -54,29 +55,17 @@ func NewInternalIPAM(service *Service, s *Scope) (*InternalIPAM, error) {
 }
 
 func (i *InternalIPAM) UpdateConfig(s *Scope) error {
-	sub, err := netip.ParsePrefix(s.SubnetCIDR)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse scope cidr")
-	}
-	start, err := netip.ParseAddr(s.IPAM["range_start"])
+	start, err := netip.ParseAddr(s.IPAM.RangeStart)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse 'range_start'")
 	}
-	end, err := netip.ParseAddr(s.IPAM["range_end"])
+	end, err := netip.ParseAddr(s.IPAM.RangeEnd)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse 'range_end'")
 	}
-	i.SubnetCIDR = sub
 	i.Start = start
 	i.End = end
-	sp := s.IPAM["should_ping"]
-	if sp != "" {
-		shouldPing, err := strconv.ParseBool(sp)
-		if err != nil {
-			return err
-		}
-		i.shouldPing = shouldPing
-	}
+	i.shouldPing = s.IPAM.ShouldPing
 	return nil
 }
 
@@ -92,7 +81,7 @@ func (i *InternalIPAM) NextFreeAddress(identifier string) *netip.Addr {
 	for i.End.Compare(currentIP) != -1 {
 		i.log.Debug("checking for free IP", zap.String("ip", currentIP.String()))
 		// Check if IP is in the correct subnet
-		if !i.SubnetCIDR.Contains(currentIP) {
+		if !i.scope.cidr.Contains(currentIP) {
 			break
 		}
 		if i.IsIPFree(currentIP, &identifier) {
@@ -163,14 +152,47 @@ func (i *InternalIPAM) IsIPFree(ip netip.Addr, identifier *string) bool {
 }
 
 func (i *InternalIPAM) GetSubnetMask() net.IPMask {
-	_, cidr, err := net.ParseCIDR(i.SubnetCIDR.String())
-	if err != nil {
-		// 这种情况绝不可能发生，因为 CIDR 的验证工作是在构造函数中完成的。
-		panic(err)
-	}
-	return cidr.Mask
+	return i.scope.mask
 }
 
+// prefixToSubnetMask 将 netip.Prefix 转换为 IPv4 子网掩码字符串（如 255.255.255.0）
+// 仅支持 IPv4，IPv6 返回空字符串
+func prefixToSubnetMask(prefix netip.Prefix) string {
+	// 仅处理 IPv4
+	if !prefix.Addr().Is4() {
+		return ""
+	}
+
+	maskLen := prefix.Bits()
+	// 校验 IPv4 掩码长度范围
+	if maskLen < 0 || maskLen > 32 {
+		return ""
+	}
+
+	// 初始化 4 个字节的掩码（默认全 0）
+	mask := [4]byte{}
+	for i := 0; i < 4; i++ {
+		// 计算当前字节的掩码位数（如 24 位 → 前 3 字节全 1，第 4 字节 0）
+		bits := 8
+		if maskLen < 8 {
+			bits = maskLen
+		}
+		if bits > 0 {
+			mask[i] = 0xff << (8 - bits) // 左移生成掩码字节（如 bits=8 → 0xff，bits=0 → 0x00）
+		}
+		maskLen -= bits
+		if maskLen <= 0 {
+			break
+		}
+	}
+
+	// 将字节数组转为字符串（如 [255,255,255,0] → "255.255.255.0"）
+	var parts []string
+	for _, b := range mask {
+		parts = append(parts, strconv.Itoa(int(b)))
+	}
+	return strings.Join(parts, ".")
+}
 func (i *InternalIPAM) UsableSize() *big.Int {
 	ips := iprange.New(i.Start.AsSlice(), i.End.AsSlice())
 	return ips.Size()

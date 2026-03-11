@@ -1,13 +1,15 @@
 {
+  "data_dir": "./data/",
+  "listen_only_mode": false,
   "mqtt": {
     "auto_start": true,
     "address": "0.0.0.0:1883",
     "http": "0.0.0.0:9000"
   },
   "instance": {
-    "identifier": "gravity-server",
+    "identifier": "vita-server",
     "ip": "192.168.1.1",
-    "interface": "eth0",
+    "interface": "en0",
     "listen": "0.0.0.0"
   },
   "etcd": {
@@ -19,15 +21,18 @@
   },
   "dhcp": {
     "listen": "0.0.0.0:67",
+    "interface": "en0",
     "scope": {
       "name": "default",
-      "gateway": "192.168.1.1",
+      "gateway": "192.168.1.253",
+      "mask": "255.255.255.0",
       "subnet_cidr": "255.255.255.0/24",
       "dns_servers": [
-        "192.168.1.1"
+        "192.168.1.253"
       ],
-      "ttl": 86400,
-      "range_start": "192.168.1.100",
+      "should_ping": true,
+      "ttl": 300,
+      "range_start": "192.168.1.50",
       "range_end": "192.168.1.200",
       "reservations": [
         {

@@ -13,7 +13,6 @@ import (
 	"douxiyou.com/enhance/pkg/storage/watcher"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
-	"github.com/spf13/viper"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.uber.org/zap"
 	"golang.org/x/net/ipv4"
@@ -95,7 +94,7 @@ func (s *Service) Stop(ctx context.Context) error {
 }
 
 func (s *Service) initHandler4() error {
-	dhcpConig := viper.Get("dhcp").(config.DHCPConfig)
+	dhcpConig := config.GetGlobalConfig().Dhcp
 	laddr := &net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
 		Port: 67,
@@ -115,6 +114,7 @@ func (s *Service) initHandler4() error {
 		s.s4.iface = *ifi
 	} else {
 		// 当未绑定到接口时，我们需要每个数据包中的信息来了解它是从哪个接口进来的。
+		s.log.Warn("DHCPv4: Listen not bound to any interface, setting ControlMessage to get interface information from each packet")
 		err = s.s4.pc.SetControlMessage(ipv4.FlagInterface, true)
 		if err != nil {
 			return err

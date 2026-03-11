@@ -9,55 +9,57 @@ import (
 var globalConfig *Config
 
 type Config struct {
+	DataDir        string `mapstructure:"data_dir" default:"."` // 数据目录
 	logger         *zap.Logger
-	Instance       Instance `mapstructure:"instance" json:"instance"`
+	Instance       Instance `mapstructure:"instance"`
 	Debug          bool
-	ListenOnlyMode bool       `mapstructure:"listen_only_mode" json:"listen_only_mode" default:"false"` // 是否仅监听模式
-	Mqtt           MQTTConfig `mapstructure:"mqtt" json:"mqtt"`                                         // MQTT 配置
-	Etcd           EtcdConfig `mapstructure:"etcd" json:"etcd"`                                         // Etcd 配置
-	Dhcp           DHCPConfig `mapstructure:"dhcp" json:"dhcp"`                                         // DHCP 配置
+	ListenOnlyMode bool       `mapstructure:"listen_only_mode" default:"false"` // 是否仅监听模式
+	Mqtt           MQTTConfig `mapstructure:"mqtt"`                             // MQTT 配置
+	Etcd           EtcdConfig `mapstructure:"etcd"`                             // Etcd 配置
+	Dhcp           DHCPConfig `mapstructure:"dhcp"`                             // DHCP 配置
 }
 type EtcdConfig struct {
-	JoinCluster string `mapstructure:"join_cluster" json:"join_cluster" default:""`       // 加入集群的节点地址
-	Prefix      string `mapstructure:"prefix" json:"prefix" default:"/enhance"`           // Etcd 键前缀
-	Endpoint    string `mapstructure:"endpoint" json:"endpoint" default:"localhost:2379"` // Etcd 客户端端口
-	ClientPort  int32  `mapstructure:"client_port" json:"client_port" default:"2381"`     // Etcd 客户端端口
-	PeerPort    int32  `mapstructure:"peer_port" json:"peer_port" default:"2380"`         // Etcd 对等端口
+	JoinCluster string `mapstructure:"join_cluster" default:""`           // 加入集群的节点地址
+	Prefix      string `mapstructure:"prefix" default:"/enhance"`         // Etcd 键前缀
+	Endpoint    string `mapstructure:"endpoint" default:"localhost:2379"` // Etcd 客户端端口
+	ClientPort  int32  `mapstructure:"client_port" default:"2381"`        // Etcd 客户端端口
+	PeerPort    int32  `mapstructure:"peer_port" default:"2380"`          // Etcd 对等端口
 }
 type Instance struct {
-	Identifier string `mapstructure:"identifier" json:"identifier" default:""` // 实例标识符
-	IP         string `mapstructure:"ip" json:"ip" default:""`                 // 实例 IP 地址
-	Interface  string `mapstructure:"interface" json:"interface" default:""`   // 网络接口名称
-	Listen     string `mapstructure:"listen" json:"listen" default:""`         // 监听地址
+	Identifier string `mapstructure:"identifier" default:""` // 实例标识符
+	IP         string `mapstructure:"ip" default:""`         // 实例 IP 地址
+	Listen     string `mapstructure:"listen" default:""`     // 监听地址
 }
 
 // MQTTConfig MQTT 配置
 type MQTTConfig struct {
-	AutoStart bool   `mapstructure:"auto_start" json:"auto_start" default:"true"` // 是否自动启动 MQTT 服务器
-	Address   string `mapstructure:"address" json:"address" default:""`           // MQTT 服务器监听地址
-	HTTP      string `mapstructure:"http" json:"http" default:""`                 // HTTP 统计信息监听地址
+	AutoStart bool   `mapstructure:"auto_start" default:"true"` // 是否自动启动 MQTT 服务器
+	Address   string `mapstructure:"address" default:""`        // MQTT 服务器监听地址
+	HTTP      string `mapstructure:"http" default:""`           // HTTP 统计信息监听地址
 }
 
 // DHCPConfig DHCP 配置
 type DHCPConfig struct {
-	Interface string      `mapstructure:"interface" json:"interface" default:"en0"` // DHCP 服务器监听接口
-	Listen    string      `mapstructure:"listen" json:"listen" default:""`          // DHCP 服务器监听地址
-	Scope     ScopeConfig `mapstructure:"scope" json:"scope" default:""`            // DHCP 范围配置
+	Interface string      `mapstructure:"interface" default:"en0"` // DHCP 服务器监听接口
+	Listen    string      `mapstructure:"listen" default:""`       // DHCP 服务器监听地址
+	Scope     ScopeConfig `mapstructure:"scope" default:""`        // DHCP 范围配置
 }
 type ScopeConfig struct {
-	Name         string            `mapstructure:"name" json:"name" default:""`                 // DHCP 范围名称
-	Gateway      string            `mapstructure:"gateway" json:"gateway" default:""`           // DHCP 网关地址
-	SubnetCIDR   string            `mapstructure:"subnet_cidr" json:"subnet_cidr" default:""`   // DHCP 子网范围
-	DNSServers   []string          `mapstructure:"dns_servers" json:"dns_servers" default:""`   // DHCP DNS 服务器地址
-	TTL          int64             `mapstructure:"ttl" json:"ttl" default:""`                   // DHCP 租约时间
-	RangeStart   string            `mapstructure:"range_start" json:"range_start" default:""`   // DHCP IP 范围起始地址
-	RangeEnd     string            `mapstructure:"range_end" json:"range_end" default:""`       // DHCP IP 范围结束地址
-	Reservations []DHCPReservation `mapstructure:"reservations" json:"reservations" default:""` // DHCP 保留 IP 配置
+	Name         string            `mapstructure:"name" default:""`         // DHCP 范围名称
+	Gateway      string            `mapstructure:"gateway" default:""`      // DHCP 网关地址
+	Mask         string            `mapstructure:"mask" default:""`         // DHCP 子网掩码
+	SubnetCIDR   string            `mapstructure:"subnet_cidr" default:""`  // DHCP 子网范围
+	DNSServers   []string          `mapstructure:"dns_servers" default:""`  // DHCP DNS 服务器地址,在局域网中,就是路由地址
+	TTL          int64             `mapstructure:"ttl" default:""`          // DHCP 租约时间
+	RangeStart   string            `mapstructure:"range_start" default:""`  // DHCP IP 范围起始地址
+	RangeEnd     string            `mapstructure:"range_end" default:""`    // DHCP IP 范围结束地址
+	ShouldPing   bool              `mapstructure:"should_ping" default:""`  // DHCP 是否 ping 检查 IP 是否可用
+	Reservations []DHCPReservation `mapstructure:"reservations" default:""` // DHCP 保留 IP 配置
 }
 type DHCPReservation struct {
-	Mac      string `mapstructure:"mac" json:"mac" default:""`           // DHCP 保留 IP 配置 MAC 地址
-	IP       string `mapstructure:"ip" json:"ip" default:""`             // DHCP 保留 IP 配置 IP 地址
-	Hostname string `mapstructure:"hostname" json:"hostname" default:""` // DHCP 保留 IP 配置主机名
+	Mac      string `mapstructure:"mac" default:""`      // DHCP 保留 IP 配置 MAC 地址
+	IP       string `mapstructure:"ip" default:""`       // DHCP 保留 IP 配置 IP 地址
+	Hostname string `mapstructure:"hostname" default:""` // DHCP 保留 IP 配置主机名
 }
 
 func GetGlobalConfig() *Config {
@@ -106,6 +108,7 @@ func GenerateConfigFile(path string) error {
 func (c *Config) EtcdClient() *storage.Client {
 	return storage.NewClient(
 		"/enhance",
+		[]string{c.Etcd.Endpoint},
 		c.logger,
 		c.Debug,
 	)

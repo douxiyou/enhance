@@ -7,6 +7,7 @@ import (
 	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/services"
 	_ "douxiyou.com/enhance/pkg/services/dhcp"
+	_ "douxiyou.com/enhance/pkg/services/etcd"
 	"douxiyou.com/enhance/pkg/storage"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
@@ -21,6 +22,7 @@ type ServiceKey string
 
 const (
 	DhcpKey ServiceKey = "dhcp"
+	EtcdKey ServiceKey = "etcd"
 )
 
 type ServiceManager struct {
@@ -77,12 +79,18 @@ func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
 	return nil
 }
 func (sm *ServiceManager) StopService(serviceKey ServiceKey) error {
-	sm.log.Info("service manager stop")
+	sm.serviceMutex.Lock()
 	serviceCtx, ok := sm.services[serviceKey]
+	sm.log.Info("services dhcp", zap.Any("service", serviceCtx.Service))
 	if !ok {
-		sm.log.Error("service not found", zap.String("service", string(serviceKey)))
+		sm.serviceMutex.Unlock()
+		sm.log.Debug("service already stopped", zap.String("service", string(serviceKey)))
 		return nil
 	}
+	// 从 map 中删除，防止重复停止
+	delete(sm.services, serviceKey)
+	sm.serviceMutex.Unlock()
+
 	err := serviceCtx.Service.Stop(serviceCtx.ServiceInstance.Context())
 	if err != nil {
 		sm.log.Error("stop service failed", zap.Error(err))
@@ -90,4 +98,7 @@ func (sm *ServiceManager) StopService(serviceKey ServiceKey) error {
 	}
 	serviceCtx.cancelFunc(err)
 	return nil
+}
+func (sm *ServiceManager) Done() {
+	<-sm.rootContext.Done()
 }

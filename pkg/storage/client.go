@@ -18,9 +18,9 @@ type Client struct {
 	parent *Client
 }
 
-func NewClient(prefix string, logger *zap.Logger, debug bool) *Client {
+func NewClient(prefix string, endpoints []string, logger *zap.Logger, debug bool) *Client {
 	config := clientv3.Config{
-		Endpoints:            []string{"localhost:2379"},
+		Endpoints:            endpoints,
 		DialTimeout:          2 * time.Second,
 		DialKeepAliveTime:    2 * time.Second,
 		DialKeepAliveTimeout: 2 * time.Second,
