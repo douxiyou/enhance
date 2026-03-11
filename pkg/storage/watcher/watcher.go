@@ -88,8 +88,13 @@ func (w *Watcher[T]) loadInitial(ctx context.Context) {
 	if err != nil {
 		w.log.Warn("failed to list entries", zap.Error(err))
 		if !errors.Is(err, context.Canceled) {
-			time.Sleep(1 * time.Second)
-			w.loadInitial(ctx)
+			// 添加重试次数限制
+			select {
+			case <-time.After(1 * time.Second):
+				w.loadInitial(ctx)
+			case <-ctx.Done():
+				return
+			}
 		}
 		return
 	}

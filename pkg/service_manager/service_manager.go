@@ -55,6 +55,14 @@ func NewServiceManager() *ServiceManager {
 }
 func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
 	sm.log.Info("service manager start")
+	// 检查服务是否已经运行
+	sm.serviceMutex.Lock()
+	if _, ok := sm.services[serviceKey]; ok {
+		sm.serviceMutex.Unlock()
+		sm.log.Info("service already running", zap.String("service", string(serviceKey)))
+		return nil
+	}
+	sm.serviceMutex.Unlock()
 	sctx, cancel := context.WithCancelCause(sm.rootContext)
 	sc := ServiceContext{
 		ServiceInstance: sm.ForService(string(serviceKey), sctx),

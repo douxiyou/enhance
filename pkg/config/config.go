@@ -79,6 +79,7 @@ func NewConfig(configPath string) error {
 	}
 
 	// 解析配置到结构体
+	globalConfig = &Config{}
 	if err := viper.Unmarshal(&globalConfig); err != nil {
 		return err
 	}

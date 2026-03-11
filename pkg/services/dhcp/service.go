@@ -45,8 +45,10 @@ func NewDhcpService(i services.Instance) *Service {
 		log: i.Log(),
 	}
 	scope, err := s.scopeFromViper()
+	// TODO: 这个位置我 觉得不是很合适,当出现错误时,应该返回错误,而不是返回默认值
 	if err != nil {
-		s.log.Fatal("failed to create scope from viper", zap.Error(err))
+		s.log.Error("failed to create scope from viper", zap.Error(err))
+		return nil
 	}
 	s.scope = scope
 	s.leases = watcher.New(

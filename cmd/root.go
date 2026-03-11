@@ -35,5 +35,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&configDir, "config", "c", "配置文件路径")
+	rootCmd.PersistentFlags().StringVar(&configDir, "config", ".", "配置文件路径")
 }
