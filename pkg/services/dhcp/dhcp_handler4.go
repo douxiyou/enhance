@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 
 	"douxiyou.com/enhance/pkg/config"
@@ -61,7 +60,7 @@ func (h *handler4) Serve() error {
 var debugDHCPGatewayReplyPeer bool
 
 func init() {
-	debugDHCPGatewayReplyPeer = os.Getenv("GRAVITY_DEBUG_DHCP_GATEWAY_REPLY_CIADDR") != ""
+	debugDHCPGatewayReplyPeer = true
 }
 
 func (h *handler4) Handle(buf []byte, oob *ipv4.ControlMessage, peer net.Addr) error {
@@ -135,8 +134,25 @@ func (h *handler4) Handle(buf []byte, oob *ipv4.ControlMessage, peer net.Addr) e
 	}
 
 	if useEthernet {
-		r.log.Debug("sending via ethernet")
-	} else {
+		r.log.Debug("sending via ethernet (适配无IP/不规范客户端) 网卡索引:", zap.Int("ifIndex", woob.IfIndex))
+		intf, err := net.InterfaceByIndex(woob.IfIndex)
+		if err != nil {
+			r.log.Error("handler4: Can not get Interface for index", zap.Error(err), zap.Int("index", woob.IfIndex))
+			// 回退到 UDP 广播发送
+			p = &net.UDPAddr{IP: net.IPv4bcast, Port: dhcpv4.ClientPort}
+			useEthernet = false
+		} else {
+			err = h.sendEthernet(*intf, resp)
+			if err != nil {
+				r.log.Error("handler4: Cannot send Ethernet packet, falling back to UDP broadcast", zap.Error(err))
+				// 回退到 UDP 广播发送
+				p = &net.UDPAddr{IP: net.IPv4bcast, Port: dhcpv4.ClientPort}
+				useEthernet = false
+			}
+		}
+	}
+	if !useEthernet {
+		r.log.Debug("广播形式发送消息到设备")
 		b := resp.ToBytes()
 		n, err := h.pc.WriteTo(b, woob, p)
 		if err != nil {
@@ -159,12 +175,16 @@ func (h *handler4) HandleRequest(r *Request4) *dhcpv4.DHCPv4 {
 	switch mt := r.MessageType(); mt {
 	case dhcpv4.MessageTypeDiscover:
 		handler = h.service.HandleDHCPDiscover4
+		h.service.log.Debug("handler4: handling discover request", zap.String("client", r.ClientIPAddr.String()))
 	case dhcpv4.MessageTypeRequest:
 		handler = h.service.HandleDHCPRequest4
+		h.service.log.Debug("handler4: handling request request", zap.String("client", r.ClientIPAddr.String()))
 	case dhcpv4.MessageTypeDecline:
 		handler = h.service.HandleDHCPDecline4
+		h.service.log.Debug("handler4: handling decline request", zap.String("client", r.ClientIPAddr.String()))
 	case dhcpv4.MessageTypeRelease:
 		handler = h.service.HandleDHCPRelease4
+		h.service.log.Debug("handler4: handling release request", zap.String("client", r.ClientIPAddr.String()))
 	default:
 		r.log.Info("Unsupported message type", zap.String("dhcpMsg", mt.String()))
 		return nil

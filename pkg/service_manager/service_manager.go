@@ -7,9 +7,7 @@ import (
 	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/services"
 	_ "douxiyou.com/enhance/pkg/services/dhcp"
-	_ "douxiyou.com/enhance/pkg/services/etcd"
 	"douxiyou.com/enhance/pkg/storage"
-	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 )
 
@@ -22,21 +20,16 @@ type ServiceKey string
 
 const (
 	DhcpKey ServiceKey = "dhcp"
-	EtcdKey ServiceKey = "etcd"
 )
 
 type ServiceManager struct {
-	rootContext context.Context
-	// rootContextCancel 根上下文的取消函数
+	rootContext       context.Context
 	rootContextCancel context.CancelCauseFunc
 	services          map[ServiceKey]ServiceContext
 	serviceMutex      sync.RWMutex
 	kv                *storage.Client
 	log               *zap.Logger
-	// identifier 实例标识符
-	identifier string
-	// instanceSession etcd会话
-	instanceSession *concurrency.Session
+	identifier        string
 }
 
 func NewServiceManager() *ServiceManager {
@@ -48,14 +41,13 @@ func NewServiceManager() *ServiceManager {
 		serviceMutex:      sync.RWMutex{},
 		log:               log,
 		identifier:        "enhance-service-manager",
-		kv:                config.EtcdClient(),
+		kv:                config.StorageClient(),
 		rootContext:       ctx,
 		rootContextCancel: cancel,
 	}
 }
 func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
 	sm.log.Info("service manager start")
-	// 检查服务是否已经运行
 	sm.serviceMutex.Lock()
 	if _, ok := sm.services[serviceKey]; ok {
 		sm.serviceMutex.Unlock()
@@ -72,13 +64,11 @@ func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
 	sm.serviceMutex.Lock()
 	sm.services[serviceKey] = sc
 	sm.serviceMutex.Unlock()
-	// 拿到指定的服务上下文
 	serviceCtx, ok := sm.services[serviceKey]
 	if !ok {
 		sm.log.Error("service not found", zap.String("service", string(serviceKey)))
 		return nil
 	}
-	// 在 goroutine 中启动服务，避免阻塞
 	go func() {
 		err := serviceCtx.Service.Start(serviceCtx.ServiceInstance.Context())
 		if err != nil {
@@ -96,7 +86,6 @@ func (sm *ServiceManager) StopService(serviceKey ServiceKey) error {
 		sm.log.Debug("service already stopped", zap.String("service", string(serviceKey)))
 		return nil
 	}
-	// 从 map 中删除，防止重复停止
 	delete(sm.services, serviceKey)
 	sm.serviceMutex.Unlock()
 

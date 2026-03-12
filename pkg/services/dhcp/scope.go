@@ -11,7 +11,7 @@ import (
 	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/services"
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
-	clientv3 "go.etcd.io/etcd/client/v3"
+	"douxiyou.com/enhance/pkg/storage"
 	"go.uber.org/zap"
 )
 
@@ -105,34 +105,27 @@ func (s *Scope) ipamType() (IPAM, error) {
 func (s *Service) findScopeForRequest(req *Request4) *Scope {
 	var match *Scope
 	longestBits := 0
-	// To prioritise requests from a DHCP relay being matched correctly, give their subnet
-	// match a 1 bit more priority
 	const dhcpRelayBias = 1
 	const clientIPBias = 2
 	scope := s.scope
-	// Check based on Client IP Address (highest priority)
 	clientIPMatchBits := scope.match(req.ClientIPAddr)
 	if clientIPMatchBits > -1 && clientIPMatchBits+clientIPBias > longestBits {
 		req.log.Debug("selected scope based on client IP", zap.String("scope", scope.Name))
 		match = scope
 		longestBits = clientIPMatchBits + clientIPBias
 	}
-	// Check based on gateway IP (next highest priority)
 	gatewayMatchBits := scope.match(req.GatewayIPAddr)
 	if gatewayMatchBits > -1 && gatewayMatchBits+dhcpRelayBias > longestBits {
 		req.log.Debug("selected scope based on cidr match (gateway IP)", zap.String("scope", scope.Name))
 		match = scope
 		longestBits = gatewayMatchBits + dhcpRelayBias
 	}
-	// Handle local broadcast, check with the instance's listening IP
-	// Only consider local scopes if we don't have a match already
 	localMatchBits := scope.match(net.ParseIP(req.LocalIP()))
 	if localMatchBits > -1 && localMatchBits > longestBits {
 		req.log.Debug("selected scope based on cidr match (instance/interface IP)", zap.String("scope", scope.Name))
 		match = scope
 		longestBits = localMatchBits
 	}
-	// Fallback to default scope if we don't already have a match
 	if match == nil && scope.Default {
 		req.log.Debug("selected scope based on default flag", zap.String("scope", scope.Name))
 		match = scope
@@ -167,18 +160,10 @@ func (s *Scope) leaseFor(req *Request4) *Lease {
 	return lease
 }
 
-func (s *Scope) Put(ctx context.Context, expiry int64, opts ...clientv3.OpOption) error {
+func (s *Scope) Put(ctx context.Context, expiry int64, opts ...storage.OpOption) error {
 	raw, err := json.Marshal(&s)
 	if err != nil {
 		return err
-	}
-
-	if expiry > 0 {
-		exp, err := s.inst.KV().Grant(ctx, expiry)
-		if err != nil {
-			return err
-		}
-		opts = append(opts, clientv3.WithLease(exp.ID))
 	}
 
 	leaseKey := s.inst.KV().Key(

@@ -13,11 +13,10 @@ import (
 
 	"douxiyou.com/enhance/pkg/services"
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
+	"douxiyou.com/enhance/pkg/storage"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/rfc1035label"
 	"github.com/spf13/viper"
-	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
 
@@ -33,11 +32,10 @@ type Lease struct {
 	AddressLeaseTime string `json:"addressLeaseTime,omitempty"`
 	ScopeKey         string `json:"scopeKey"`
 	DNSZone          string `json:"dnsZone,omitempty"`
-	// Set to -1 for a reservation
-	Expiry      int64  `json:"expiry"`
-	Description string `json:"description"`
+	Expiry           int64  `json:"expiry"`
+	Description      string `json:"description"`
 
-	etcdKey string
+	badgerKey string
 }
 
 func (s *Service) FindLease(req *Request4) *Lease {
@@ -45,10 +43,9 @@ func (s *Service) FindLease(req *Request4) *Lease {
 	if !ok {
 		return nil
 	}
-	// Check if the leases's scope matches the expected scope to handle this request
+
 	expectedScope := s.findScopeForRequest(req)
 	if expectedScope != nil && lease.scope != expectedScope {
-		// We have a specific scope to handle this request but it doesn't match the lease
 		lease.scope = expectedScope
 		lease.ScopeKey = expectedScope.Name
 		lease.setLeaseIP(req)
@@ -91,7 +88,7 @@ func (l *Lease) setLeaseIP(req *Request4) {
 	l.scope.ipam.UseIP(*ip, l.Identifier)
 }
 
-func (s *Service) leaseFromKV(raw *mvccpb.KeyValue) (*Lease, error) {
+func (s *Service) leaseFromKV(raw *storage.KeyValue) (*Lease, error) {
 	prefix := s.i.KV().Key(
 		types.KeyService,
 		types.KeyLeases,
@@ -102,7 +99,7 @@ func (s *Service) leaseFromKV(raw *mvccpb.KeyValue) (*Lease, error) {
 	if err != nil {
 		return l, err
 	}
-	l.etcdKey = string(raw.Key)
+	l.badgerKey = string(raw.Key)
 
 	l.scope = s.scope
 	return l, nil
@@ -125,15 +122,9 @@ func (l *Lease) Delete(ctx context.Context) error {
 	return err
 }
 
-func (l *Lease) Put(ctx context.Context, expiry int64, opts ...clientv3.OpOption) error {
+func (l *Lease) Put(ctx context.Context, expiry int64, opts ...storage.OpOption) error {
 	if expiry > 0 && !l.IsReservation() {
 		l.Expiry = time.Now().Add(time.Duration(expiry) * time.Second).Unix()
-
-		exp, err := l.inst.KV().Grant(ctx, expiry)
-		if err != nil {
-			return err
-		}
-		opts = append(opts, clientv3.WithLease(exp.ID))
 	}
 
 	raw, err := json.Marshal(&l)
@@ -181,7 +172,6 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 		}
 	}
 
-	// DNS Options
 	ip := viper.GetString("instance.ip")
 	rep.UpdateOption(dhcpv4.OptDNS(net.ParseIP(ip)))
 	if l.scope.DNS != nil {
@@ -191,10 +181,8 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 		}
 	}
 
-	// Check if the request has a different hostname, and update the lease
 	if req.HostName() != l.Hostname {
 		l.Hostname = req.HostName()
-		// Update lease with new hostname
 		err := l.Put(req.Context, l.Expiry)
 		if err != nil {
 			l.log.Warn("failed to update lease for updated hostname", zap.Error(err))
@@ -227,7 +215,6 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 			opt.Tag = &tag
 		}
 
-		// Values which are directly converted from string to byte
 		if opt.Value != nil {
 			finalVal = []byte(*opt.Value)
 			if _, ok := types.IPTags[*opt.Tag]; ok {
@@ -236,7 +223,6 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 			}
 		}
 
-		// For non-stringable values, get b64 decoded values
 		if len(opt.Value64) > 0 {
 			values64 := make([]byte, 0)
 			for _, v := range opt.Value64 {

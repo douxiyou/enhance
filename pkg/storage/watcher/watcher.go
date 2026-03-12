@@ -9,8 +9,6 @@ import (
 
 	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/storage"
-	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
 
@@ -18,13 +16,13 @@ type Watcher[T any] struct {
 	entries     map[string]T
 	mutex       sync.RWMutex
 	log         *zap.Logger
-	constructor func(*mvccpb.KeyValue) (T, error)
+	constructor func(*storage.KeyValue) (T, error)
 	prefix      *storage.Key
 	client      *storage.Client
 
 	withPrefix       bool
 	afterInitialLoad func()
-	beforeUpdate     func(entry T, direction mvccpb.Event_EventType)
+	beforeUpdate     func(entry T, direction storage.EventType)
 
 	keyFunc func(string) string
 
@@ -32,7 +30,7 @@ type Watcher[T any] struct {
 }
 
 func New[T any](
-	constructor func(*mvccpb.KeyValue) (T, error),
+	constructor func(*storage.KeyValue) (T, error),
 	client *storage.Client,
 	prefix *storage.Key,
 	opts ...func(w *Watcher[T]),
@@ -77,18 +75,17 @@ func (w *Watcher[T]) Stop(ctx context.Context) {
 	}
 	w.mutex.RLock()
 	for _, e := range w.entries {
-		w.beforeUpdate(e, mvccpb.DELETE)
+		w.beforeUpdate(e, storage.DELETE)
 	}
 	w.mutex.RUnlock()
 }
 
 func (w *Watcher[T]) loadInitial(ctx context.Context) {
 	w.log.Debug("Loading initial")
-	entries, err := w.client.Get(ctx, w.prefix.String(), clientv3.WithPrefix())
+	entries, err := w.client.Get(ctx, w.prefix.String(), storage.WithPrefix())
 	if err != nil {
 		w.log.Warn("failed to list entries", zap.Error(err))
 		if !errors.Is(err, context.Canceled) {
-			// 添加重试次数限制
 			select {
 			case <-time.After(1 * time.Second):
 				w.loadInitial(ctx)
@@ -99,7 +96,7 @@ func (w *Watcher[T]) loadInitial(ctx context.Context) {
 		return
 	}
 	for _, entry := range entries.Kvs {
-		w.handleEvent(mvccpb.PUT, entry)
+		w.handleEvent(storage.PUT, entry)
 	}
 	if w.afterInitialLoad != nil {
 		w.afterInitialLoad()
@@ -107,7 +104,7 @@ func (w *Watcher[T]) loadInitial(ctx context.Context) {
 }
 
 func (w *Watcher[T]) startWatch(ctx context.Context) {
-	ch := w.client.Watch(ctx, w.prefix.String(), clientv3.WithPrefix())
+	ch := w.client.Watch(ctx, w.prefix.String(), storage.WithPrefix())
 	for watchResp := range ch {
 		for _, event := range watchResp.Events {
 			w.handleEvent(event.Type, event.Kv)
@@ -115,9 +112,8 @@ func (w *Watcher[T]) startWatch(ctx context.Context) {
 	}
 }
 
-func (w *Watcher[T]) handleEvent(t mvccpb.Event_EventType, kv *mvccpb.KeyValue) bool {
+func (w *Watcher[T]) handleEvent(t storage.EventType, kv *storage.KeyValue) bool {
 	key := w.keyFunc(string(kv.Key))
-	// we only care about scope-level updates, everything underneath doesn't matter
 	relKey := strings.TrimPrefix(key, w.prefix.String())
 	if !w.withPrefix && strings.Contains(relKey, "/") {
 		return false
@@ -129,12 +125,12 @@ func (w *Watcher[T]) handleEvent(t mvccpb.Event_EventType, kv *mvccpb.KeyValue) 
 		w.mutex.RUnlock()
 	}
 	switch t {
-	case mvccpb.DELETE:
+	case storage.DELETE:
 		w.log.Debug("removed entry", zap.String("key", key))
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
 		delete(w.entries, key)
-	case mvccpb.PUT:
+	case storage.PUT:
 		e, err := w.constructor(kv)
 		if err != nil {
 			w.log.Warn("failed to construct entry", zap.Error(err))

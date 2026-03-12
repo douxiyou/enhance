@@ -12,12 +12,8 @@
     "interface": "en0",
     "listen": "0.0.0.0"
   },
-  "etcd": {
-    "prefix": "/enhance",
-    "endpoint": "localhost:2379",
-    "client_port": 2381,
-    "peer_port": 2380,
-    "join_cluster": ""
+  "badger": {
+    "prefix": "/enhance"
   },
   "dhcp": {
     "listen": "0.0.0.0:67",
@@ -26,7 +22,7 @@
       "name": "default",
       "gateway": "192.168.1.253",
       "mask": "255.255.255.0",
-      "subnet_cidr": "255.255.255.0/24",
+      "subnet_cidr": "192.168.1.0/24",
       "dns_servers": [
         "192.168.1.253"
       ],

@@ -1,6 +1,3 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -13,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// serverCmd represents the server command
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "启动路由器增强工具服务器",
@@ -22,12 +18,22 @@ var serverCmd = &cobra.Command{
 		inst := service_manager.NewServiceManager()
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		inst.StartService(service_manager.EtcdKey)
-		inst.StartService(service_manager.DhcpKey)
+		
+		fmt.Println("Starting DHCP service...")
+		if err := inst.StartService(service_manager.DhcpKey); err != nil {
+			fmt.Printf("Failed to start DHCP service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("DHCP service started successfully")
+		
+		fmt.Println("Server running. Press Ctrl+C to stop...")
 		<-sig
+		
+		fmt.Println("Stopping DHCP service...")
 		inst.StopService(service_manager.DhcpKey)
-		inst.StopService(service_manager.EtcdKey)
-		os.Exit(0)
+		fmt.Println("DHCP service stopped")
+		
+		fmt.Println("Server stopped")
 	},
 }
 
