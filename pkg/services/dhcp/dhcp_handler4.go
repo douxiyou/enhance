@@ -153,6 +153,7 @@ func (h *handler4) Handle(buf []byte, oob *ipv4.ControlMessage, peer net.Addr) e
 	}
 	if !useEthernet {
 		r.log.Debug("广播形式发送消息到设备")
+		r.log.Debug("广播形式发送消息到设备 具体数据是什么:", zap.String("resp", resp.String()))
 		b := resp.ToBytes()
 		n, err := h.pc.WriteTo(b, woob, p)
 		if err != nil {

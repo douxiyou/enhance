@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"syscall"
 
 	"douxiyou.com/enhance/pkg/config"
 	"douxiyou.com/enhance/pkg/services"
@@ -101,6 +102,18 @@ func (s *Service) initHandler4() error {
 	udpConn, err := server4.NewIPv4UDPConn(ifName, laddr)
 	if err != nil {
 		return err
+	}
+	// ========== 关键修复：开启 SO_BROADCAST 广播权限 ==========
+	// 从 udpConn 获取底层文件句柄
+	file, err := udpConn.File()
+	if err != nil {
+		return fmt.Errorf("获取 UDP 连接文件句柄失败: %w", err)
+	}
+	// 注意：不要关闭 file，否则 udpConn 会失效
+	fd := int(file.Fd())
+	// 开启广播权限（SO_BROADCAST）
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1); err != nil {
+		return fmt.Errorf("设置广播权限失败: %w", err)
 	}
 	s.s4.pc = ipv4.NewPacketConn(udpConn)
 	var ifi *net.Interface
