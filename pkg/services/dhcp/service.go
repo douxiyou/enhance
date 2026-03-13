@@ -30,12 +30,16 @@ type Service struct {
 	oui *oui.OuiDb
 }
 
+const (
+	ServiceName = "dhcp"
+)
+
 func (s *Service) Name() string {
-	return "dhcp"
+	return ServiceName
 }
 
 func init() {
-	services.RegisterService("dhcp", func(i services.Instance) services.Service {
+	services.RegisterService(ServiceName, func(i services.Instance) services.Service {
 		return NewDhcpService(i)
 	})
 }
@@ -47,7 +51,7 @@ func NewDhcpService(i services.Instance) *Service {
 	}
 	scope, err := s.scopeFromViper()
 	if err != nil {
-		s.log.Fatal("failed to create scope from viper", zap.Error(err))
+		s.log.Fatal("从 viper 创建 scope 失败", zap.Error(err))
 	}
 	s.scope = scope
 	s.leases = watcher.New(
@@ -58,11 +62,12 @@ func NewDhcpService(i services.Instance) *Service {
 			}
 			return s, nil
 		},
-		s.i.KV(),
-		s.i.KV().Key(
+		i.KV(),
+		i.KV().Key(
 			types.KeyService,
 			types.KeyLeases,
 		).Prefix(true),
+		watcher.WithPrefix[*Lease](),
 	)
 	s.s4 = &handler4{
 		service: s,
@@ -76,13 +81,13 @@ func (s *Service) Start(ctx context.Context) error {
 	s.leases.Start(ctx)
 	err := s.initHandler4()
 	if err != nil {
-		s.log.Fatal("failed to init handler4", zap.Error(err))
+		s.log.Fatal("初始化 handler4 失败", zap.Error(err))
 		return err
 	}
 	go func() {
 		err := s.startServer4()
 		if err != nil {
-			s.log.Warn("failed to listen", zap.Error(err))
+			s.log.Warn("监听失败", zap.Error(err))
 		}
 	}()
 	return nil
@@ -120,11 +125,11 @@ func (s *Service) initHandler4() error {
 	if ifName != "" {
 		ifi, err = net.InterfaceByName(ifName)
 		if err != nil {
-			return fmt.Errorf("DHCPv4: Listen could not find interface %s: %v", ifName, err)
+			return fmt.Errorf("DHCPv4: 监听无法找到接口 %s: %v", ifName, err)
 		}
 		s.s4.iface = *ifi
 	} else {
-		s.log.Warn("DHCPv4: Listen not bound to any interface, setting ControlMessage to get interface information from each packet")
+		s.log.Warn("DHCPv4: 监听未绑定到任何接口，设置 ControlMessage 以从每个数据包获取接口信息")
 		err = s.s4.pc.SetControlMessage(ipv4.FlagInterface, true)
 		if err != nil {
 			return err
@@ -140,7 +145,7 @@ func (s *Service) initHandler4() error {
 	return nil
 }
 func (s *Service) startServer4() error {
-	s.log.Info("starting DHCP Server", zap.Int("port", 67), zap.String("interface", s.s4.iface.Name))
+	s.log.Info("启动 DHCP 服务器", zap.Int("port", 67), zap.String("interface", s.s4.iface.Name))
 	err := s.s4.Serve()
 	if !isErrNetClosing(err) {
 		return err

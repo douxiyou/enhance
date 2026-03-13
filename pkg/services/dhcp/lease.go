@@ -41,18 +41,20 @@ type Lease struct {
 func (s *Service) FindLease(req *Request4) *Lease {
 	lease, ok := s.leases.GetPrefix(s.DeviceIdentifier(req.DHCPv4))
 	if !ok {
+		s.log.Debug("根据请求identifier未找到lease", zap.String("identifier", s.DeviceIdentifier(req.DHCPv4)))
 		return nil
 	}
 
 	expectedScope := s.findScopeForRequest(req)
+	// 此处scope不应该出现不符合的情况,因为我们只有一个scope,并没有多scope的情况
 	if expectedScope != nil && lease.scope != expectedScope {
 		lease.scope = expectedScope
 		lease.ScopeKey = expectedScope.Name
 		lease.setLeaseIP(req)
-		lease.log.Info("Re-assigning address for lease due to changed request scope", zap.String("newIP", lease.Address))
+		lease.log.Info("由于请求scope变更，重新分配lease地址", zap.String("newIP", lease.Address))
 		err := lease.Put(req.Context, lease.scope.TTL)
 		if err != nil {
-			s.log.Warn("failed to update lease for re-assigned IP", zap.Error(err))
+			s.log.Warn("更新重新分配IP的lease失败", zap.Error(err))
 		}
 	}
 	return lease
@@ -70,10 +72,10 @@ func (s *Service) NewLease(identifier string) *Lease {
 func (l *Lease) setLeaseIP(req *Request4) {
 	requestedIP := req.RequestedIPAddress()
 	if requestedIP != nil {
-		req.log.Debug("checking requested IP", zap.String("ip", requestedIP.String()))
+		req.log.Debug("检查请求的 IP", zap.String("ip", requestedIP.String()))
 		ip, _ := netip.AddrFromSlice(requestedIP)
 		if l.scope.ipam.IsIPFree(ip, &l.Identifier) {
-			req.log.Debug("requested IP is free", zap.String("ip", requestedIP.String()))
+			req.log.Debug("请求的 IP 是空闲的", zap.String("ip", requestedIP.String()))
 			l.Address = requestedIP.String()
 			l.scope.ipam.UseIP(ip, l.Identifier)
 			return
@@ -83,7 +85,7 @@ func (l *Lease) setLeaseIP(req *Request4) {
 	if ip == nil {
 		return
 	}
-	req.log.Debug("using next free IP from IPAM", zap.String("ip", ip.String()))
+	req.log.Debug("使用 IPAM 中的下一个空闲 IP", zap.String("ip", ip.String()))
 	l.Address = ip.String()
 	l.scope.ipam.UseIP(*ip, l.Identifier)
 }
@@ -144,16 +146,17 @@ func (l *Lease) Put(ctx context.Context, expiry int64, opts ...storage.OpOption)
 		opts...,
 	)
 	if err != nil {
+		l.log.Warn("保存 lease 失败", zap.String("key", leaseKey.String()))
 		return err
 	}
-	l.log.Debug("put lease", zap.Int64("expiry", expiry))
+	l.log.Debug("保存 lease", zap.Any("key", leaseKey.String()), zap.Any("value", string(raw)))
 	return nil
 }
 
 func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 	rep, err := dhcpv4.NewReplyFromRequest(req.DHCPv4)
 	if err != nil {
-		req.log.Warn("failed to create reply", zap.Error(err))
+		req.log.Warn("创建回复失败", zap.Error(err))
 		return nil
 	}
 	rep.UpdateOption(dhcpv4.OptSubnetMask(l.scope.ipam.GetSubnetMask()))
@@ -162,11 +165,11 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 	if l.AddressLeaseTime != "" {
 		pl, err := time.ParseDuration(l.AddressLeaseTime)
 		if err != nil {
-			req.log.Warn("failed to parse address lease duration, defaulting", zap.Error(err), zap.String("default", pl.String()))
+			req.log.Warn("解析地址租约时长失败，使用默认值", zap.Error(err), zap.String("default", pl.String()))
 		} else if pl.Seconds() < 1 {
-			req.log.Warn("invalid duration: less than 1", zap.String("duration", l.AddressLeaseTime))
+			req.log.Warn("无效的时长: 小于 1", zap.String("duration", l.AddressLeaseTime))
 		} else if pl.Seconds() > math.MaxInt32 {
-			req.log.Warn("invalid duration: duration too long", zap.String("duration", l.AddressLeaseTime))
+			req.log.Warn("无效的时长: 时长过长", zap.String("duration", l.AddressLeaseTime))
 		} else {
 			rep.UpdateOption(dhcpv4.OptIPAddressLeaseTime(pl))
 		}
@@ -185,7 +188,7 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 		l.Hostname = req.HostName()
 		err := l.Put(req.Context, l.Expiry)
 		if err != nil {
-			l.log.Warn("failed to update lease for updated hostname", zap.Error(err))
+			l.log.Warn("更新主机名的 lease 失败", zap.Error(err))
 		}
 	}
 	if l.Hostname != "" {
@@ -209,7 +212,7 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 		if opt.TagName != "" {
 			tag, ok := types.TagMap[types.OptionTagName(opt.TagName)]
 			if !ok {
-				req.log.Warn("invalid tag name", zap.String("tagName", opt.TagName))
+				req.log.Warn("无效的标签名称", zap.String("tagName", opt.TagName))
 				continue
 			}
 			opt.Tag = &tag
@@ -228,7 +231,7 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 			for _, v := range opt.Value64 {
 				va, err := base64.StdEncoding.DecodeString(v)
 				if err != nil {
-					req.log.Warn("failed to convert base64 value to byte", zap.Error(err))
+					req.log.Warn("转换 base64 值到字节失败", zap.Error(err))
 					continue
 				}
 				values64 = append(values64, va...)
@@ -240,7 +243,7 @@ func (l *Lease) createReply(req *Request4) *dhcpv4.DHCPv4 {
 			for _, v := range opt.ValueHex {
 				va, err := hex.DecodeString(v)
 				if err != nil {
-					req.log.Warn("failed to convert hex value to byte", zap.Error(err))
+					req.log.Warn("转换 hex 值到字节失败", zap.Error(err))
 					continue
 				}
 				valuesHex = append(valuesHex, va...)

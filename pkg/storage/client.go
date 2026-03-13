@@ -64,7 +64,7 @@ func NewClient(prefix string, dataDir string, logger *zap.Logger, debug bool) *C
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		logger.Fatal("badger client create failed", zap.Error(err))
+		logger.Fatal("badger 客户端创建失败", zap.Error(err))
 	}
 
 	return &Client{
@@ -121,7 +121,7 @@ func (c *Client) Get(ctx context.Context, key string, opts ...OpOption) (*GetRes
 			keyCopy := item.KeyCopy(nil)
 			valueCopy, err := item.ValueCopy(nil)
 			if err != nil {
-				c.log.Error("failed to copy value", zap.Error(err))
+				c.log.Error("复制值失败", zap.Error(err))
 				continue
 			}
 			kvs = append(kvs, &KeyValue{
@@ -256,7 +256,7 @@ func (c *Client) watchLoop(ctx context.Context, key string, ch WatchChan, prefix
 					keyStr := string(item.KeyCopy(nil))
 					value, err := item.ValueCopy(nil)
 					if err != nil {
-						c.log.Error("failed to copy value", zap.Error(err))
+						c.log.Error("复制值失败", zap.Error(err))
 						continue
 					}
 					currentData[keyStr] = value

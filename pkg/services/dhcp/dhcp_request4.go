@@ -34,7 +34,7 @@ func (s *Service) NewRequest4(dhcp *dhcpv4.DHCPv4) *Request4 {
 	}
 }
 
-// Use the instance ip unless the the interface is not bound
+// 使用实例 IP，除非接口未绑定
 func (req *Request4) LocalIP() string {
 	ip := viper.GetString("instance.ip")
 	if req.oob != nil {
@@ -49,7 +49,7 @@ func (req *Request4) LocalIP() string {
 		for _, addr := range addrs {
 			if ipv4Addr := addr.(*net.IPNet).IP.To4(); ipv4Addr != nil {
 				ip = ipv4Addr.String()
-				req.log.Debug("Unbound interface found", zap.String("ifname", ief.Name), zap.String("ip", ip))
+				req.log.Debug("发现未绑定接口", zap.String("ifname", ief.Name), zap.String("ip", ip))
 				return ip
 			}
 		}

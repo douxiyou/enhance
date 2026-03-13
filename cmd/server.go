@@ -14,26 +14,26 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "启动路由器增强工具服务器",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("server called")
+		fmt.Println("服务器启动")
 		inst := service_manager.NewServiceManager()
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		
-		fmt.Println("Starting DHCP service...")
+
+		fmt.Println("启动 DHCP 服务...")
 		if err := inst.StartService(service_manager.DhcpKey); err != nil {
-			fmt.Printf("Failed to start DHCP service: %v\n", err)
+			fmt.Printf("启动 DHCP 服务失败: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("DHCP service started successfully")
-		
-		fmt.Println("Server running. Press Ctrl+C to stop...")
+		fmt.Println("DHCP 服务启动成功")
+
+		fmt.Println("服务器运行中。按 Ctrl+C 停止...")
 		<-sig
-		
-		fmt.Println("Stopping DHCP service...")
+
+		fmt.Println("停止 DHCP 服务...")
 		inst.StopService(service_manager.DhcpKey)
-		fmt.Println("DHCP service stopped")
-		
-		fmt.Println("Server stopped")
+		fmt.Println("DHCP 服务已停止")
+
+		fmt.Println("服务器已停止")
 	},
 }
 

@@ -15,9 +15,9 @@ func (s *Service) recoverMiddleware4(inner Handler4) Handler4 {
 				return
 			}
 			if e, ok := err.(error); ok {
-				s.log.Error("recover in dhcp handler", zap.Error(e))
+				s.log.Error("在 DHCP 处理器中恢复", zap.Error(e))
 			} else {
-				s.log.Error("recover in dhcp handler", zap.Any("panic", err))
+				s.log.Error("在 DHCP 处理器中恢复", zap.Any("panic", err))
 			}
 		}()
 		return inner(req)
@@ -39,7 +39,7 @@ func (s *Service) logDHCPMessage(req *Request4, m *dhcpv4.DHCPv4, fields []zap.F
 		zap.String("clientIdentifier", hex.EncodeToString(m.Options.Get(dhcpv4.OptionClientIdentifier))),
 		zap.String("messageType", m.MessageType().String()),
 	}
-	req.log.With(f...).With(fields...).Info("DHCP packet")
+	req.log.With(f...).With(fields...).Info("DHCP 数据包")
 }
 
 func (s *Service) loggingMiddleware4(inner Handler4) Handler4 {

@@ -46,11 +46,11 @@ func NewInternalIPAM(service *Service, s *Scope) (*InternalIPAM, error) {
 func (i *InternalIPAM) UpdateConfig(s *Scope) error {
 	start, err := netip.ParseAddr(s.IPAM.RangeStart)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse 'range_start'")
+		return errors.Wrap(err, "解析 'range_start' 失败")
 	}
 	end, err := netip.ParseAddr(s.IPAM.RangeEnd)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse 'range_end'")
+		return errors.Wrap(err, "解析 'range_end' 失败")
 	}
 	i.Start = start
 	i.End = end
@@ -63,7 +63,7 @@ func (i *InternalIPAM) NextFreeAddress(identifier string) *netip.Addr {
 	defer i.ipf.Unlock()
 	currentIP := i.Start
 	for i.End.Compare(currentIP) != -1 {
-		i.log.Debug("checking for free IP", zap.String("ip", currentIP.String()))
+		i.log.Debug("检查可用 IP", zap.String("ip", currentIP.String()))
 		if !i.scope.cidr.Contains(currentIP) {
 			i.log.Debug("CIDR 不包含当前IP:", zap.String("ip", currentIP.String()))
 			break
@@ -73,7 +73,7 @@ func (i *InternalIPAM) NextFreeAddress(identifier string) *netip.Addr {
 		}
 		currentIP = currentIP.Next()
 	}
-	i.log.Warn("no more empty IPs left", zap.String("lastIp", currentIP.String()))
+	i.log.Warn("没有可用的 IP 地址", zap.String("lastIp", currentIP.String()))
 	return nil
 }
 
@@ -88,25 +88,25 @@ func (i *InternalIPAM) IsIPFree(ip netip.Addr, identifier *string) bool {
 	if identifier != nil {
 		l := i.service.leases.Get(*identifier)
 		if l != nil && l.Address == ip.String() {
-			i.log.Debug("allowing", zap.String("ip", ip.String()), zap.String("reason", "existing IP of lease"))
+			i.log.Debug("允许", zap.String("ip", ip.String()), zap.String("reason", "lease 的现有 IP"))
 			i.scopeLock.Unlock()
 			return true
 		}
 	}
 	for _, l := range i.service.leases.Iter() {
 		if l.Address == ip.String() {
-			i.log.Debug("discarding", zap.String("ip", ip.String()), zap.String("reason", "used (in memory)"))
+			i.log.Debug("丢弃", zap.String("ip", ip.String()), zap.String("reason", "已使用 (内存中)"))
 			i.scopeLock.Unlock()
 			return false
 		}
 	}
 	i.scopeLock.Unlock()
 	if i.Start.Compare(ip) == 1 {
-		i.log.Debug("discarding", zap.String("ip", ip.String()), zap.String("reason", "before started"))
+		i.log.Debug("丢弃", zap.String("ip", ip.String()), zap.String("reason", "在起始地址之前"))
 		return false
 	}
 	if i.End.Compare(ip) == -1 {
-		i.log.Debug("discarding", zap.String("ip", ip.String()), zap.String("reason", "after end"))
+		i.log.Debug("丢弃", zap.String("ip", ip.String()), zap.String("reason", "在结束地址之后"))
 		return false
 	}
 	for _, l := range i.service.leases.Iter() {
@@ -118,14 +118,14 @@ func (i *InternalIPAM) IsIPFree(ip netip.Addr, identifier *string) bool {
 		}
 		if identifier != nil && l.Identifier == *identifier {
 			i.UseIP(ip, *identifier)
-			i.log.Debug("allowing", zap.String("ip", ip.String()), zap.String("reason", "existing matching lease"))
+			i.log.Debug("允许", zap.String("ip", ip.String()), zap.String("reason", "现有匹配的 lease"))
 			return true
 		}
-		i.log.Debug("discarding", zap.String("ip", ip.String()), zap.String("reason", "existing lease"))
+		i.log.Debug("丢弃", zap.String("ip", ip.String()), zap.String("reason", "现有 lease"))
 		return false
 	}
 
-	i.log.Debug("allowing", zap.String("ip", ip.String()), zap.String("reason", "free"))
+	i.log.Debug("允许", zap.String("ip", ip.String()), zap.String("reason", "空闲"))
 	return true
 }
 

@@ -58,7 +58,7 @@ func (w *Watcher[T]) Prefix() *storage.Key {
 }
 
 func (w *Watcher[T]) Start(ctx context.Context) {
-	w.log.Debug("Starting watcher")
+	w.log.Debug("启动 watcher")
 	w.loadInitial(ctx)
 	cctx, cancel := context.WithCancel(ctx)
 	w.watchCancel = cancel
@@ -66,7 +66,7 @@ func (w *Watcher[T]) Start(ctx context.Context) {
 }
 
 func (w *Watcher[T]) Stop(ctx context.Context) {
-	w.log.Debug("Stopping watcher")
+	w.log.Debug("停止 watcher")
 	if w.watchCancel != nil {
 		w.watchCancel()
 	}
@@ -81,10 +81,10 @@ func (w *Watcher[T]) Stop(ctx context.Context) {
 }
 
 func (w *Watcher[T]) loadInitial(ctx context.Context) {
-	w.log.Debug("Loading initial")
+	w.log.Debug("加载初始数据")
 	entries, err := w.client.Get(ctx, w.prefix.String(), storage.WithPrefix())
 	if err != nil {
-		w.log.Warn("failed to list entries", zap.Error(err))
+		w.log.Warn("列出条目失败", zap.Error(err))
 		if !errors.Is(err, context.Canceled) {
 			select {
 			case <-time.After(1 * time.Second):
@@ -126,20 +126,20 @@ func (w *Watcher[T]) handleEvent(t storage.EventType, kv *storage.KeyValue) bool
 	}
 	switch t {
 	case storage.DELETE:
-		w.log.Debug("removed entry", zap.String("key", key))
+		w.log.Debug("移除条目", zap.String("key", key))
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
 		delete(w.entries, key)
 	case storage.PUT:
 		e, err := w.constructor(kv)
 		if err != nil {
-			w.log.Warn("failed to construct entry", zap.Error(err))
+			w.log.Warn("构造条目失败", zap.Error(err))
 			return false
 		}
 		w.mutex.Lock()
 		w.entries[key] = e
 		w.mutex.Unlock()
-		w.log.Debug("added entry", zap.String("key", key))
+		w.log.Debug("添加条目", zap.String("key", key))
 	}
 	return true
 }

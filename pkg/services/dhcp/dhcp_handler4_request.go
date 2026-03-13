@@ -13,7 +13,7 @@ func (s *Service) HandleDHCPRequest4(req *Request4) *dhcpv4.DHCPv4 {
 		if scope == nil {
 			return nil
 		}
-		req.log.Debug("found scope for new lease", zap.String("scope", scope.Name))
+		req.log.Debug("为新 lease 找到 scope", zap.String("scope", scope.Name))
 		match = scope.leaseFor(req)
 		if match == nil {
 			return nil
@@ -22,7 +22,7 @@ func (s *Service) HandleDHCPRequest4(req *Request4) *dhcpv4.DHCPv4 {
 
 	err := match.Put(req.Context, match.scope.TTL)
 	if err != nil {
-		req.log.Warn("failed to put dhcp lease", zap.Error(err))
+		req.log.Warn("保存 DHCP lease 失败", zap.Error(err))
 	}
 
 	rep := match.createReply(req)

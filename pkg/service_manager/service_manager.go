@@ -47,14 +47,10 @@ func NewServiceManager() *ServiceManager {
 	}
 }
 func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
-	sm.log.Info("service manager start")
-	sm.serviceMutex.Lock()
-	if _, ok := sm.services[serviceKey]; ok {
-		sm.serviceMutex.Unlock()
-		sm.log.Info("service already running", zap.String("service", string(serviceKey)))
+	if sm.exists(serviceKey) {
+		sm.log.Info("服务已经在运行", zap.String("service", string(serviceKey)))
 		return nil
 	}
-	sm.serviceMutex.Unlock()
 	sctx, cancel := context.WithCancelCause(sm.rootContext)
 	sc := ServiceContext{
 		ServiceInstance: sm.ForService(string(serviceKey), sctx),
@@ -64,26 +60,21 @@ func (sm *ServiceManager) StartService(serviceKey ServiceKey) error {
 	sm.serviceMutex.Lock()
 	sm.services[serviceKey] = sc
 	sm.serviceMutex.Unlock()
-	serviceCtx, ok := sm.services[serviceKey]
-	if !ok {
-		sm.log.Error("service not found", zap.String("service", string(serviceKey)))
-		return nil
+	err := sc.Service.Start(sc.ServiceInstance.Context())
+	if err != nil {
+		sm.log.Error("启动服务失败", zap.Error(err))
+		delete(sm.services, serviceKey)
+		return err
 	}
-	go func() {
-		err := serviceCtx.Service.Start(serviceCtx.ServiceInstance.Context())
-		if err != nil {
-			sm.log.Error("start service failed", zap.Error(err))
-		}
-	}()
 	return nil
 }
 func (sm *ServiceManager) StopService(serviceKey ServiceKey) error {
 	sm.serviceMutex.Lock()
 	serviceCtx, ok := sm.services[serviceKey]
-	sm.log.Info("services dhcp", zap.Any("service", serviceCtx.Service))
+	sm.log.Info("服务 "+string(serviceKey), zap.Any("service", serviceCtx.Service))
 	if !ok {
 		sm.serviceMutex.Unlock()
-		sm.log.Debug("service already stopped", zap.String("service", string(serviceKey)))
+		sm.log.Debug("服务已经停止", zap.String("service", string(serviceKey)))
 		return nil
 	}
 	delete(sm.services, serviceKey)
@@ -91,11 +82,17 @@ func (sm *ServiceManager) StopService(serviceKey ServiceKey) error {
 
 	err := serviceCtx.Service.Stop(serviceCtx.ServiceInstance.Context())
 	if err != nil {
-		sm.log.Error("stop service failed", zap.Error(err))
+		sm.log.Error("停止服务失败", zap.Error(err))
 		return err
 	}
 	serviceCtx.cancelFunc(err)
 	return nil
+}
+func (sm *ServiceManager) exists(serviceKey ServiceKey) bool {
+	sm.serviceMutex.RLock()
+	defer sm.serviceMutex.RUnlock()
+	_, ok := sm.services[serviceKey]
+	return ok
 }
 func (sm *ServiceManager) Done() {
 	<-sm.rootContext.Done()

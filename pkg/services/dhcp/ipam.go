@@ -7,21 +7,20 @@ import (
 )
 
 type IPAM interface {
-	// Return the next free IP address, could be sequential or random
+	// 返回下一个可用的 IP 地址，可以是顺序的或随机的
 	NextFreeAddress(identifier string) *netip.Addr
-	// Check if IP address is in usage (should also check if IP is in specified range and subnet)
-	// Can optionally also check if the IP address is pingable
-	// `identifier` might be given as well for a device that could request an address
-	// that it had already taken
+	// 检查 IP 地址是否被使用（还应检查 IP 是否在指定范围和子网内）
+	// 可以选择检查 IP 地址是否可 ping
+	// `identifier` 也可能被提供给可能请求已经获取的地址的设备
 	IsIPFree(addr netip.Addr, identifier *string) bool
-	// Get the subnet mask of the scope
+	// 获取作用域的子网掩码
 	GetSubnetMask() net.IPMask
-	// Mark an IP as used
+	// 将 IP 标记为已使用
 	UseIP(addr netip.Addr, identifier string)
-	// Mark an IP as unused
+	// 将 IP 标记为未使用
 	FreeIP(ip netip.Addr)
-	// Update config when scope is updated
+	// 当作用域更新时更新配置
 	UpdateConfig(s *Scope) error
-	// Amount of usable IPs excluding any exclusions
+	// 可用 IP 数量（排除任何排除项）
 	UsableSize() *big.Int
 }

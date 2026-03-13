@@ -87,7 +87,7 @@ func (s *Service) scopeFromViper() (*Scope, error) {
 	scope.cidr = cidr
 	ipamInst, err := scope.ipamType()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ipam: %w", err)
+		return nil, fmt.Errorf("创建 ipam 失败: %w", err)
 	}
 	scope.ipam = ipamInst
 	return scope, nil
@@ -110,28 +110,28 @@ func (s *Service) findScopeForRequest(req *Request4) *Scope {
 	scope := s.scope
 	clientIPMatchBits := scope.match(req.ClientIPAddr)
 	if clientIPMatchBits > -1 && clientIPMatchBits+clientIPBias > longestBits {
-		req.log.Debug("selected scope based on client IP", zap.String("scope", scope.Name))
+		req.log.Debug("基于客户端 IP 选择 scope", zap.String("scope", scope.Name))
 		match = scope
 		longestBits = clientIPMatchBits + clientIPBias
 	}
 	gatewayMatchBits := scope.match(req.GatewayIPAddr)
 	if gatewayMatchBits > -1 && gatewayMatchBits+dhcpRelayBias > longestBits {
-		req.log.Debug("selected scope based on cidr match (gateway IP)", zap.String("scope", scope.Name))
+		req.log.Debug("基于 CIDR 匹配选择 scope (网关 IP)", zap.String("scope", scope.Name))
 		match = scope
 		longestBits = gatewayMatchBits + dhcpRelayBias
 	}
 	localMatchBits := scope.match(net.ParseIP(req.LocalIP()))
 	if localMatchBits > -1 && localMatchBits > longestBits {
-		req.log.Debug("selected scope based on cidr match (instance/interface IP)", zap.String("scope", scope.Name))
+		req.log.Debug("基于 CIDR 匹配选择 scope (实例/接口 IP)", zap.String("scope", scope.Name))
 		match = scope
 		longestBits = localMatchBits
 	}
 	if match == nil && scope.Default {
-		req.log.Debug("selected scope based on default flag", zap.String("scope", scope.Name))
+		req.log.Debug("基于默认标志选择 scope", zap.String("scope", scope.Name))
 		match = scope
 	}
 	if match != nil {
-		req.log.Debug("final scope selection", zap.String("scope", match.Name))
+		req.log.Debug("最终 scope 选择", zap.String("scope", match.Name))
 	}
 	return match
 }
@@ -139,7 +139,7 @@ func (s *Service) findScopeForRequest(req *Request4) *Scope {
 func (s *Scope) match(peer net.IP) int {
 	ip, err := netip.ParseAddr(peer.String())
 	if err != nil {
-		s.log.Warn("failed to parse client ip", zap.Error(err))
+		s.log.Warn("解析客户端 IP 失败", zap.Error(err))
 		return -1
 	}
 	if s.cidr.Contains(ip) {
@@ -156,7 +156,7 @@ func (s *Scope) leaseFor(req *Request4) *Lease {
 	lease.scope = s
 	lease.ScopeKey = s.Name
 	lease.setLeaseIP(req)
-	req.log.Info("creating new DHCP lease", zap.String("ip", lease.Address), zap.String("identifier", ident))
+	req.log.Info("创建新的 DHCP lease", zap.String("ip", lease.Address), zap.String("identifier", ident))
 	return lease
 }
 

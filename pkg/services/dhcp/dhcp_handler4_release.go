@@ -14,15 +14,15 @@ func (s *Service) HandleDHCPRelease4(req *Request4) *dhcpv4.DHCPv4 {
 	}
 	ip, err := netip.ParseAddr(match.Address)
 	if err != nil {
-		req.log.Warn("failed to parse address from lease", zap.Error(err))
+		req.log.Warn("从 lease 解析地址失败", zap.Error(err))
 	} else {
 		match.scope.ipam.FreeIP(ip)
 	}
 	err = match.Delete(req.Context)
 	if err != nil {
-		req.log.Warn("failed to delete lease", zap.Error(err))
+		req.log.Warn("删除 lease 失败", zap.Error(err))
 	} else {
-		req.log.Info("deleted lease from release")
+		req.log.Info("从 release 中删除 lease")
 	}
 	return nil
 }
