@@ -18,21 +18,21 @@ var serverCmd = &cobra.Command{
 		inst := service_manager.NewServiceManager()
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		
+
 		fmt.Println("Starting DHCP service...")
 		if err := inst.StartService(service_manager.DhcpKey); err != nil {
 			fmt.Printf("Failed to start DHCP service: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Println("DHCP service started successfully")
-		
+
 		fmt.Println("Server running. Press Ctrl+C to stop...")
 		<-sig
-		
+
 		fmt.Println("Stopping DHCP service...")
 		inst.StopService(service_manager.DhcpKey)
 		fmt.Println("DHCP service stopped")
-		
+
 		fmt.Println("Server stopped")
 	},
 }

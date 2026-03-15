@@ -3,7 +3,6 @@ package dhcp
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/netip"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"douxiyou.com/enhance/pkg/services"
 	"douxiyou.com/enhance/pkg/services/dhcp/types"
 	"douxiyou.com/enhance/pkg/storage"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -26,23 +26,20 @@ type Scope struct {
 	inst services.Instance
 	DNS  *ScopeDNS
 
-	IPAM struct {
-		Type       string
-		RangeStart string
-		RangeEnd   string
-		ShouldPing bool
-	}
+	IPAM    InternalIPAM
 	service *Service
 	log     *zap.Logger
-
+	// CIDR of the scope e.g. 192.168.1.0/24
 	cidr netip.Prefix
+	// Subnet mask of the scope e.g. 255.255.255.0
 	mask net.IPMask
+	// Name of the scope e.g. "default"
 	Name string
 
-	Options []*types.DHCPOption `json:"options"`
+	Options []*types.DHCPOption
 	TTL     int64
 	Default bool
-	Prefix  string `json:"prefix"`
+	Prefix  string
 }
 
 func (r *Service) NewScope(name string) *Scope {
@@ -53,12 +50,7 @@ func (r *Service) NewScope(name string) *Scope {
 		TTL:     int64((7 * 24 * time.Hour).Seconds()),
 		log:     r.log.With(zap.String("scope", name)),
 		DNS:     &ScopeDNS{},
-		IPAM: struct {
-			Type       string
-			RangeStart string
-			RangeEnd   string
-			ShouldPing bool
-		}{},
+		IPAM:    InternalIPAM{},
 		Default: true,
 	}
 }
@@ -67,27 +59,30 @@ func (s *Service) scopeFromViper() (*Scope, error) {
 	scopeConfig := config.GetGlobalConfig().Dhcp.Scope
 	scope := s.NewScope(scopeConfig.Name)
 	scope.mask = net.IPMask(scopeConfig.Mask)
-	scope.IPAM = struct {
-		Type       string
-		RangeStart string
-		RangeEnd   string
-		ShouldPing bool
-	}{
+	start, err := netip.ParseAddr(scopeConfig.RangeStart)
+	if err != nil {
+		return nil, errors.Wrap(err, "解析 'range_start' 失败")
+	}
+	end, err := netip.ParseAddr(scopeConfig.RangeEnd)
+	if err != nil {
+		return nil, errors.Wrap(err, "解析 'range_end' 失败")
+	}
+	scope.IPAM = InternalIPAM{
 		Type:       InternalIPAMType,
-		RangeStart: scopeConfig.RangeStart,
-		RangeEnd:   scopeConfig.RangeEnd,
-		ShouldPing: scopeConfig.ShouldPing,
+		Start:      start,
+		End:        end,
+		shouldPing: scopeConfig.ShouldPing,
 	}
 	scope.TTL = scopeConfig.TTL
 	s.log.Debug("配置文件:::scope config", zap.Any("config", scopeConfig))
 	cidr, err := netip.ParsePrefix(scopeConfig.SubnetCIDR)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "解析 'subnet_cidr' 失败")
 	}
 	scope.cidr = cidr
 	ipamInst, err := scope.ipamType()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ipam: %w", err)
+		return nil, errors.Wrap(err, "创建 IPAM 失败")
 	}
 	scope.ipam = ipamInst
 	return scope, nil

@@ -4,18 +4,16 @@ import (
 	"math/big"
 	"net"
 	"net/netip"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/netdata/go.d.plugin/pkg/iprange"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
 const InternalIPAMType = "internal"
 
 type InternalIPAM struct {
+	Type  string
 	Start netip.Addr
 	End   netip.Addr
 
@@ -44,17 +42,9 @@ func NewInternalIPAM(service *Service, s *Scope) (*InternalIPAM, error) {
 }
 
 func (i *InternalIPAM) UpdateConfig(s *Scope) error {
-	start, err := netip.ParseAddr(s.IPAM.RangeStart)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse 'range_start'")
-	}
-	end, err := netip.ParseAddr(s.IPAM.RangeEnd)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse 'range_end'")
-	}
-	i.Start = start
-	i.End = end
-	i.shouldPing = s.IPAM.ShouldPing
+	i.Start = s.IPAM.Start
+	i.End = s.IPAM.End
+	i.shouldPing = s.IPAM.shouldPing
 	return nil
 }
 
@@ -131,38 +121,6 @@ func (i *InternalIPAM) IsIPFree(ip netip.Addr, identifier *string) bool {
 
 func (i *InternalIPAM) GetSubnetMask() net.IPMask {
 	return i.scope.mask
-}
-
-func prefixToSubnetMask(prefix netip.Prefix) string {
-	if !prefix.Addr().Is4() {
-		return ""
-	}
-
-	maskLen := prefix.Bits()
-	if maskLen < 0 || maskLen > 32 {
-		return ""
-	}
-
-	mask := [4]byte{}
-	for i := 0; i < 4; i++ {
-		bits := 8
-		if maskLen < 8 {
-			bits = maskLen
-		}
-		if bits > 0 {
-			mask[i] = 0xff << (8 - bits)
-		}
-		maskLen -= bits
-		if maskLen <= 0 {
-			break
-		}
-	}
-
-	var parts []string
-	for _, b := range mask {
-		parts = append(parts, strconv.Itoa(int(b)))
-	}
-	return strings.Join(parts, ".")
 }
 
 func (i *InternalIPAM) UsableSize() *big.Int {
