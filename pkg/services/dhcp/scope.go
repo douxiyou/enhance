@@ -63,7 +63,7 @@ func (r *Service) NewScope(name string) *Scope {
 	}
 }
 
-func (s *Service) scopeFromViper() (*Scope, error) {
+func (s *Service) scopeFrom() (*Scope, error) {
 	scopeConfig := config.GetGlobalConfig().Dhcp.Scope
 	scope := s.NewScope(scopeConfig.Name)
 	scope.mask = net.IPMask(scopeConfig.Mask)

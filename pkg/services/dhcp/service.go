@@ -49,7 +49,7 @@ func NewDhcpService(i services.Instance) *Service {
 		ctx: i.Context(),
 		log: i.Log(),
 	}
-	scope, err := s.scopeFromViper()
+	scope, err := s.scopeFrom()
 	if err != nil {
 		s.log.Fatal("从 viper 创建 scope 失败", zap.Error(err))
 	}
@@ -67,7 +67,7 @@ func NewDhcpService(i services.Instance) *Service {
 			types.KeyService,
 			types.KeyLeases,
 		).Prefix(true),
-		watcher.WithPrefix[*Lease](),
+		// watcher.WithPrefix[*Lease](),
 	)
 	s.s4 = &handler4{
 		service: s,
@@ -76,6 +76,11 @@ func NewDhcpService(i services.Instance) *Service {
 }
 func (s *Service) Handler4() *handler4 {
 	return s.s4
+}
+
+// Leases 返回 leases watcher
+func (s *Service) Leases() *watcher.Watcher[*Lease] {
+	return s.leases
 }
 func (s *Service) Start(ctx context.Context) error {
 	s.leases.Start(ctx)
@@ -145,7 +150,7 @@ func (s *Service) initHandler4() error {
 	return nil
 }
 func (s *Service) startServer4() error {
-	s.log.Info("启动 DHCP 服务器", zap.Int("port", 67), zap.String("interface", s.s4.iface.Name))
+	s.log.Info("启动 DHCPv4 服务", zap.Int("port", 67), zap.String("interface", s.s4.iface.Name))
 	err := s.s4.Serve()
 	if !isErrNetClosing(err) {
 		return err
@@ -161,6 +166,8 @@ func isErrNetClosing(err error) bool {
 	}
 	return strings.Contains(err.Error(), useOfClosedErrMsg)
 }
+
+// 设备的mac 地址
 func (r *Service) DeviceIdentifier(m *dhcpv4.DHCPv4) string {
 	return m.ClientHWAddr.String()
 }

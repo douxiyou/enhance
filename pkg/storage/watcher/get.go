@@ -1,15 +1,13 @@
 package watcher
 
-func (w *Watcher[T]) Get(key string) T {
-	entry, _ := w.GetOK(key)
-	return entry
-}
+import "fmt"
 
-func (w *Watcher[T]) GetPrefix(parts ...string) (T, bool) {
+func (w *Watcher[T]) GetWithPrefix(parts ...string) (T, bool) {
 	return w.GetOK(w.Prefix().Add(parts...).String())
 }
 
 func (w *Watcher[T]) GetOK(key string) (T, bool) {
+	fmt.Println("查找数据时的key:", key)
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	entry, ok := w.entries[key]

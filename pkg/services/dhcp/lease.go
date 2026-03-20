@@ -39,7 +39,7 @@ type Lease struct {
 }
 
 func (s *Service) FindLease(req *Request4) *Lease {
-	lease, ok := s.leases.GetPrefix(s.DeviceIdentifier(req.DHCPv4))
+	lease, ok := s.leases.GetWithPrefix(s.DeviceIdentifier(req.DHCPv4))
 	if !ok {
 		s.log.Debug("根据请求identifier未找到lease", zap.String("identifier", s.DeviceIdentifier(req.DHCPv4)))
 		return nil

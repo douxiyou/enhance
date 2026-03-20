@@ -7,6 +7,7 @@ import (
 )
 
 func (s *Service) HandleDHCPDiscover4(req *Request4) *dhcpv4.DHCPv4 {
+	req.log.Debug("处理 DHCPv4 Discover", zap.Any("req", req))
 	match := s.FindLease(req)
 	if match == nil {
 		scope := s.findScopeForRequest(req)

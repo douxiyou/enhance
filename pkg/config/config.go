@@ -13,10 +13,10 @@ type Config struct {
 	logger         *zap.Logger
 	Instance       Instance `mapstructure:"instance"`
 	Debug          bool
-	ListenOnlyMode bool       `mapstructure:"listen_only_mode" default:"false"`
-	Mqtt           MQTTConfig `mapstructure:"mqtt"`
+	ListenOnlyMode bool         `mapstructure:"listen_only_mode" default:"false"`
+	Mqtt           MQTTConfig   `mapstructure:"mqtt"`
 	Badger         BadgerConfig `mapstructure:"badger"`
-	Dhcp           DHCPConfig `mapstructure:"dhcp"`
+	Dhcp           DHCPConfig   `mapstructure:"dhcp"`
 }
 
 type BadgerConfig struct {

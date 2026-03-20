@@ -86,8 +86,8 @@ func (i *InternalIPAM) UseIP(ip netip.Addr, identifier string) {
 func (i *InternalIPAM) IsIPFree(ip netip.Addr, identifier *string) bool {
 	i.scopeLock.Lock()
 	if identifier != nil {
-		l := i.service.leases.Get(*identifier)
-		if l != nil && l.Address == ip.String() {
+		l, ok := i.service.leases.GetOK(*identifier)
+		if ok && l.Address == ip.String() {
 			i.log.Debug("允许", zap.String("ip", ip.String()), zap.String("reason", "lease 的现有 IP"))
 			i.scopeLock.Unlock()
 			return true

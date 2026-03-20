@@ -13,12 +13,14 @@ import (
 )
 
 type Watcher[T any] struct {
-	entries     map[string]T
-	mutex       sync.RWMutex
-	log         *zap.Logger
+	entries map[string]T
+	mutex   sync.RWMutex
+	log     *zap.Logger
+	// constructor 用于从存储键值对创建存放在数据库的条目
 	constructor func(*storage.KeyValue) (T, error)
 	prefix      *storage.Key
-	client      *storage.Client
+	// client 用于与存储交互的客户端
+	client *storage.Client
 
 	withPrefix       bool
 	afterInitialLoad func()

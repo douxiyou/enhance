@@ -94,6 +94,14 @@ func (sm *ServiceManager) exists(serviceKey ServiceKey) bool {
 	_, ok := sm.services[serviceKey]
 	return ok
 }
+func (sm *ServiceManager) KV() *storage.Client {
+	return sm.kv
+}
+func (sm *ServiceManager) GetService(serviceKey ServiceKey) (services.Service, error) {
+	sm.serviceMutex.RLock()
+	defer sm.serviceMutex.RUnlock()
+	return sm.services[serviceKey].Service, nil
+}
 func (sm *ServiceManager) Done() {
 	<-sm.rootContext.Done()
 }

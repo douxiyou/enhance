@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -337,60 +336,4 @@ func WithPrefix() OpOption {
 	return func(op *Op) {
 		op.prefix = true
 	}
-}
-
-func (c *Client) Key(parts ...string) *Key {
-	return &Key{
-		parts: parts,
-	}
-}
-
-type Key struct {
-	parts []string
-}
-
-func (k *Key) String() string {
-	return "/" + strings.Join(k.parts, "/")
-}
-
-func (k *Key) Add(parts ...string) *Key {
-	newParts := make([]string, len(k.parts))
-	copy(newParts, k.parts)
-	newParts = append(newParts, parts...)
-	return &Key{parts: newParts}
-}
-
-func (k *Key) Copy() *Key {
-	newParts := make([]string, len(k.parts))
-	copy(newParts, k.parts)
-	return &Key{parts: newParts}
-}
-
-func (k *Key) Prefix(withLeadingSlash bool) *Key {
-	return &Key{
-		parts: k.parts,
-	}
-}
-
-func (c *Client) GetJSON(ctx context.Context, key string, v interface{}, opts ...OpOption) error {
-	resp, err := c.Get(ctx, key, opts...)
-	if err != nil {
-		return err
-	}
-
-	if len(resp.Kvs) == 0 {
-		return nil
-	}
-
-	return json.Unmarshal(resp.Kvs[0].Value, v)
-}
-
-func (c *Client) PutJSON(ctx context.Context, key string, v interface{}, opts ...OpOption) error {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.Put(ctx, key, string(data), opts...)
-	return err
 }

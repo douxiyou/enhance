@@ -8,7 +8,7 @@
   },
   "instance": {
     "identifier": "vita-server",
-    "ip": "192.168.1.20",
+    "ip": "192.168.3.126",
     "interface": "en0",
     "listen": "0.0.0.0"
   },
@@ -20,20 +20,20 @@
     "interface": "en0",
     "scope": {
       "name": "default",
-      "gateway": "192.168.1.253",
+      "gateway": "192.168.3.253",
       "mask": "255.255.255.0",
-      "subnet_cidr": "192.168.1.0/24",
+      "subnet_cidr": "192.168.3.0/24",
       "dns_servers": [
-        "192.168.1.253"
+        "192.168.3.253"
       ],
       "should_ping": true,
       "ttl": 300,
-      "range_start": "192.168.1.50",
-      "range_end": "192.168.1.200",
+      "range_start": "192.168.3.50",
+      "range_end": "192.168.3.200",
       "reservations": [
         {
           "mac": "00:11:22:33:44:55",
-          "ip": "192.168.1.20",
+          "ip": "192.168.3.126",
           "hostname": "server"
         }
       ]
